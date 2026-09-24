@@ -1,0 +1,84 @@
+# Filtres communs à REPO_INDEX.json et à la publication Drive.
+# Le dépôt local reste la source de vérité ; ce fichier décrit uniquement ce qui est publié.
+
+# Gouvernance Web externe au dépôt local
+- /regles-generales-production.md
+
+# Git / outils locaux
+- /.git
+- /.git/**
+- /.github/**
+- /.codex
+- /.codex/**
+- /.vscode/**
+- /**/.qtcreator/**
+
+# Build, caches et sorties générées
+- /build/**
+- /**/build/**
+- /**/CMakeFiles/**
+- /**/CMakeCache.txt
+- /**/cmake_install.cmake
+- /**/build.ninja
+- /**/.ninja_deps
+- /**/.ninja_log
+- /**/.qt/**
+- /**/__pycache__/**
+- /**/*.pyc
+- /**/*.pyo
+- /**/.pytest_cache/**
+- /**/.mypy_cache/**
+- /**/.ruff_cache/**
+- /**/.cache/**
+- /**/coverage/**
+- /**/htmlcov/**
+- /**/test-results/**
+- /**/playwright-report/**
+- /**/.coverage*
+- /**/coverage.xml
+
+# Runtime local / secrets
+- /.env
+- /.env.*
+- /*.key
+- /*.pem
+- /*.p12
+- /*.pfx
+- /credentials.json
+- /token.json
+- /rclone.conf
+- /.netrc
+- /.npmrc
+- /.pypirc
+- /accloud/logs/**
+- /accloud/session.json
+- /accloud/accloud_cache.db
+- /uc.makeronline.com.har
+- /**/*.har
+- /**/.env
+- /**/.env.*
+- /**/*.key
+- /**/*.pem
+- /**/*.p12
+- /**/*.pfx
+- /**/credentials.json
+- /**/token.json
+- /**/rclone.conf
+- /**/.netrc
+- /**/.npmrc
+- /**/.pypirc
+
+# Données locales lourdes ou résultats de travail non nécessaires au contexte Web
+- /pwsz/**
+- /benchmarks/**
+- /accloud/ui.zip
+- /acm.zip
+- /nlohmann_json.zip
+- /accloud-build-deps.zip
+
+# Livraison des patchs : canal distant séparé, jamais synchronisé vers/depuis le dépôt.
+- /patch
+- /patch/**
+
+# Généré avant sync puis publié séparément après succès du sync principal.
+- /REPO_INDEX.json

@@ -96,4 +96,4 @@ The same vocabulary can represent pre-print autoload or refill during printing. 
 
 ## Live validation
 
-A broker test requires a valid session, network access, Qt6 MQTT, OpenSSL compatibility and external mTLS material. `acm.zip` intentionally contains no private key. Missing prerequisites are reported as **environment incomplete**, never as a successful broker validation.
+A broker test requires a valid session, network access, Qt6 MQTT, OpenSSL compatibility and external mTLS material. The published project state intentionally contains no private key. Missing prerequisites are reported as **environment incomplete**, never as a successful broker validation.

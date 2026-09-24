@@ -98,7 +98,7 @@ ctest --preset default -R '^accloud_mqtt_bridge_architecture$' --output-on-failu
 
 Cette garde maintient `MqttBridge` comme une façade Qt bornée, impose les unités session/messages/télémétrie, vérifie l'ensemble partagé `ACCLOUD_MQTT_BRIDGE_SOURCES` et préserve la propriété de la configuration broker/SLICER figée dans l'unité session.
 
-Isolation du viewer (identifiants de build historiques) :
+Isolation du viewer expérimental :
 
 ```bash
 cmake --preset experimental-viewer-core
@@ -161,32 +161,33 @@ Après activation explicite, une session ou un matériel TLS absent/invalide et 
 
 ## Produire un patch
 
-Les règles complètes de production et de livraison sont fournies séparément par la session GPT Web dans `regles-generales-production.md`. Ce fichier normatif n’est volontairement ni stocké, ni copié, ni recréé dans le dépôt et ne doit jamais entrer dans `acm.zip` ou une archive patch.
+Les règles locales de Codex sont définies par `AGENTS.md` ; `codex-patch-mode.md` gouverne l’application mécanique d’un patch ZIP déjà produit. Le dépôt local est la source de vérité. GPT Web utilise ses règles de gouvernance Web séparées, analyse l’état filtré publié sur Google Drive et produit un patch dans le canal distant `patch/`. Le document de gouvernance Web n’est pas un prérequis du dépôt local.
 
 ```text
-analyser
--> modifier le périmètre strict
--> validation ciblée
--> construire le ZIP
--> contrôler mécaniquement le ZIP
--> rapporter validations exécutées et manquantes
+dépôt local
+-> sync-drive.sh
+-> état Drive filtré + REPO_INDEX.json
+-> analyse GPT Web
+-> patch_XXXX.zip dans Drive/<projet>/patch/
 ```
 
-Un patch contient `PATCH_MANIFEST.md`, `DELETE_FILES.txt`, `MOVE_FILES.txt` et uniquement les fichiers projet modifiés avec leurs chemins relatifs.
+Un patch contient `PATCH_MANIFEST.md`, `DELETE_FILES.txt`, `MOVE_FILES.txt` et uniquement les fichiers projet modifiés avec leurs chemins relatifs. `patch/` est exclu de la synchronisation Drive principale.
 
 ## Appliquer un patch
 
-`codex-patch-mode.md` s'applique seulement lorsqu'un patch ZIP complet existe déjà.
+`codex-patch-mode.md` s'applique seulement lorsqu'un patch ZIP complet existe. Codex récupère uniquement le patch demandé depuis le Drive vers `/tmp`, l’inspecte, l’applique au dépôt local, exécute les tests obligatoires, prépare des diagnostics ciblés si nécessaire puis republie l’état local avec `sync-drive.sh`.
 
 ```text
-inspecter le manifeste
--> vérifier chemins et contenus
--> appliquer exactement déplacements/suppressions/remplacements
--> exécuter les validations demandées
--> arrêter au premier échec obligatoire
+Drive/<projet>/patch/patch_XXXX.zip
+-> récupération rclone ciblée vers /tmp
+-> inspection manifeste et chemins
+-> application au dépôt local
+-> validations obligatoires
+-> diagnostics/ si nécessaire
+-> sync-drive.sh
 ```
 
-L'applicateur ne redéfinit pas le patch et ne modifie pas le code pour faire passer un test.
+Aucune synchronisation globale Drive -> dépôt n’est autorisée. L'applicateur ne redéfinit pas le patch et ne modifie pas opportunistement le code pour faire passer un test.
 
 ## Politique d'échec
 

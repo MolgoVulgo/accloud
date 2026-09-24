@@ -1,19 +1,25 @@
-# Politique de l’archive source
+# Politique de publication du dépôt
 
-> Statut : annexe technique ACTIVE. La production des patchs reste gouvernée par le fichier normatif séparé `regles-generales-production.md` fourni par la session GPT Web.
+> Statut : annexe technique ACTIVE. Le fonctionnement local de Codex est gouverné par `AGENTS.md` et, pour un patch ZIP existant, par `codex-patch-mode.md`. La production des patchs par GPT Web est gouvernée séparément hors du dépôt local.
 
-Le snapshot projet distribuable contient le code source, la configuration de build, le packaging, la documentation maintenue et les tests de régression. Les données publiques de référence sont limitées à de petites fixtures synthétiques vérifiables dans un diff normal.
+Le dépôt local est la source de vérité du projet. Google Drive contient uniquement une publication filtrée préparée par `sync-drive.sh` ; il ne remplace pas Git et ne doit jamais être synchronisé globalement vers le dépôt.
 
-Le snapshot exclut :
+L’état publié contient le code source maintenu, la configuration de build, le packaging, la documentation, le tooling et les tests de régression nécessaires à l’analyse GPT Web. Les données publiques de référence sont limitées à de petites fixtures synthétiques vérifiables normalement.
 
-- outputs de build et caches CMake ;
-- `.git` et caches IDE ;
+Le document de gouvernance Web n’est pas un fichier du dépôt local et reste hors de la publication principale gérée par `sync-drive.sh`.
+
+La publication Drive principale exclut au minimum :
+
+- `.git/`, états IDE locaux, sorties CMake/Ninja et caches ;
 - bases runtime, paramètres, miniatures, fichiers temporaires et logs ;
 - captures HAR, `session.json`, tokens, cookies, URL signées et matériel TLS privé ;
-- échantillons PWSZ/Photon réels sans droit de redistribution ;
-- le fichier externe de gouvernance `regles-generales-production.md` ;
-- le bundle externe de dépendance hors ligne `accloud-build-deps.zip`.
+- gros échantillons PWSZ/Photon réels locaux et résultats de benchmark générés ;
+- archives de dépendances telles que `nlohmann_json.zip` / `accloud-build-deps.zip` ;
+- `patch/`, qui constitue un canal distant de livraison séparé ;
+- `REPO_INDEX.json` généré, publié séparément après la synchronisation principale.
 
-`acm.zip` est fourni manuellement par l’utilisateur et n’est généré par aucun script du dépôt. L’archive active est identifiée par sa taille exacte en octets puis extraite dans un nouveau répertoire de travail. Une ancienne extraction ou une ancienne chaîne de patchs ne peut pas devenir une source de vérité plus récente.
+`REPO_INDEX.json` est généré avec le même `sync-drive.filter` que la publication principale. Il décrit uniquement les fichiers réellement dans le périmètre publié et est copié sur le Drive après succès du `rclone sync`.
 
-Le contrat documentaire valide les Markdown maintenus, les données publiques synthétiques et les invariants principaux de cette politique, mais il ne crée ni ne remplace `acm.zip`.
+L’ancien workflow `acm.zip` n’est plus le transport normal de développement après migration. Une archive complète peut encore exister pour sauvegarde ou échange exceptionnel, mais elle n’est pas la source de vérité et ne doit pas remplacer le workflow du dépôt local.
+
+Le contrat documentaire valide les Markdown maintenus, les données publiques synthétiques, les fichiers de contrôle Drive et les invariants principaux de publication.

@@ -8,13 +8,14 @@ Le dépôt est un projet C++20 / Qt6 / QML construit avec CMake. Python est rés
 
 ## Ordre de lecture
 
-Les règles de production et de livraison des correctifs sont fournies par l’environnement GPT Web. Elles ne font pas partie du dépôt et ne doivent pas être recherchées, copiées ou recréées localement.
+`AGENTS.md` est le document normatif local principal pour Codex. Le dépôt local est la source de vérité ; Google Drive est uniquement l’espace de publication et d’échange avec GPT Web. Le document `regles-generales-production.md` appartient au workflow Web et ne constitue pas une règle locale ni un prérequis du dépôt.
 
-1. `codex-patch-mode.md` uniquement lorsqu’un patch ZIP déjà produit doit être appliqué mécaniquement ;
-2. `accloud/CMakeLists.txt` et `accloud/CMakePresets.json` ;
-3. `docs/README.md` ou `docs/FR/README.md` ;
-4. le document fonctionnel correspondant à la zone réellement touchée ;
-5. le code actif et les tests déclarés par CMake.
+1. `AGENTS.md` ;
+2. `codex-patch-mode.md` lorsqu’un patch ZIP déjà produit doit être récupéré/appliqué ;
+3. `accloud/CMakeLists.txt` et `accloud/CMakePresets.json` ;
+4. `docs/README.md` ou `docs/FR/README.md` ;
+5. le document fonctionnel correspondant à la zone réellement touchée ;
+6. le code actif et les tests déclarés par CMake.
 
 Les documents sous `docs/FR/sources-techniques/` sont des matériaux historiques ou d'investigation. Ils ne remplacent jamais la documentation principale ni le runtime actif.
 
@@ -53,4 +54,4 @@ Avant de modifier, identifier le runtime réellement chargé et le module propri
 
 Lorsque la demande utilisateur porte sur un commit, il est interdit d'exécuter des tests avant ce commit sauf demande explicite de l'utilisateur. En dehors d'une demande de commit, les validations pertinentes peuvent être lancées normalement.
 
-Ne jamais commit ni push sans instruction explicite.
+Ne jamais commit ni push sans instruction explicite. La publication Drive se fait uniquement via `sync-drive.sh` dans le sens dépôt local → Drive ; elle ne remplace pas Git.

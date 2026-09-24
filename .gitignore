@@ -34,3 +34,8 @@ accloud/ui.zip
 pwsz/
 benchmarks/
 packaging/
+
+# Drive + Codex workflow
+REPO_INDEX.json
+diagnostics/*
+!diagnostics/.gitkeep

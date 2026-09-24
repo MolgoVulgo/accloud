@@ -96,4 +96,4 @@ Le même vocabulaire peut représenter un autoload avant impression ou un refill
 
 ## Validation live
 
-Un test broker exige session valide, réseau, Qt6 MQTT, compatibilité OpenSSL et matériel mTLS externe. `acm.zip` ne contient volontairement aucune clé privée. Tout prérequis absent est qualifié **environnement incomplet**, jamais validation broker réussie.
+Un test broker exige session valide, réseau, Qt6 MQTT, compatibilité OpenSSL et matériel mTLS externe. L’état projet publié ne contient volontairement aucune clé privée. Tout prérequis absent est qualifié **environnement incomplet**, jamais validation broker réussie.

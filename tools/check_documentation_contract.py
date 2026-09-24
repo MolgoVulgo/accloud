@@ -63,18 +63,46 @@ def check_required_pairs(root: Path, errors: list[str]) -> None:
 
 
 def check_repository_control_files(root: Path, errors: list[str]) -> None:
-    required = root / "codex-patch-mode.md"
-    if not required.is_file():
-        errors.append("missing local patch application contract: codex-patch-mode.md")
+    required = (
+        "AGENTS.md",
+        "codex-patch-mode.md",
+        "sync-drive.sh",
+        "sync-drive.conf",
+        "sync-drive.filter",
+        "diagnostics/.gitkeep",
+    )
+    for relative in required:
+        if not (root / relative).is_file():
+            errors.append(f"missing local workflow control file: {relative}")
 
     forbidden = (
+        root / "regles-generales-production.md",
         root / "codex-patch-mode-acm.md",
         root / "regles-generales-production-correctifs.md",
-        root / "regles-generales-production.md",
     )
     for path in forbidden:
         if path.exists():
             errors.append(f"forbidden local control document: {path.relative_to(root)}")
+
+    sync_script = read_text(root / "sync-drive.sh") if (root / "sync-drive.sh").is_file() else ""
+    for token in (
+        'source "${CONF_FILE}"',
+        'rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${FILTER_FILE}"',
+        'rclone copyto "${INDEX_FILE}" "${REMOTE}/REPO_INDEX.json"',
+        '"project": project_name',
+    ):
+        if token not in sync_script:
+            errors.append(f"sync-drive.sh is missing workflow token {token!r}")
+
+    sync_conf = read_text(root / "sync-drive.conf") if (root / "sync-drive.conf").is_file() else ""
+    for token in ('PROJECT_NAME="anycubic-cloud-manager"', 'REMOTE="gdrive:anycubic-cloud-manager"'):
+        if token not in sync_conf:
+            errors.append(f"sync-drive.conf is missing project token {token!r}")
+
+    sync_filter = read_text(root / "sync-drive.filter") if (root / "sync-drive.filter").is_file() else ""
+    for token in ("- /regles-generales-production.md", "- /.codex", "- /patch/**", "- /REPO_INDEX.json", "- /**/*.key", "- /**/*.har"):
+        if token not in sync_filter:
+            errors.append(f"sync-drive.filter is missing required exclusion {token!r}")
 
 
 def check_temporary_documentation(root: Path, errors: list[str]) -> None:
@@ -322,8 +350,12 @@ def check_documentation_freshness_contract(root: Path, errors: list[str]) -> Non
         ("docs/07-development-tests-patches.md", english_dev),
         ("docs/FR/07-developpement-tests-correctifs.md", french_dev),
     ):
-        if "regles-generales-production.md" not in text:
-            errors.append(f"{relative} does not name the external normative governance file")
+        if "AGENTS.md" not in text or "codex-patch-mode.md" not in text:
+            errors.append(f"{relative} does not name the local Codex governance files")
+        if "regles-generales-production.md" in text:
+            errors.append(f"{relative} incorrectly names the Web governance document as local")
+        if "Drive" not in text or "REPO_INDEX.json" not in text:
+            errors.append(f"{relative} does not document the Drive + Codex workflow")
         if "regles-generales-production-correctifs.md" in text:
             errors.append(f"{relative} still names the obsolete governance file")
 
@@ -334,9 +366,9 @@ def check_documentation_freshness_contract(root: Path, errors: list[str]) -> Non
         text = read_text(root / relative)
         if "make-a.sh" in text:
             errors.append(f"{relative} still documents the removed archive script")
-        for token in ("tests", "acm.zip", "regles-generales-production.md", "accloud-build-deps.zip"):
+        for token in ("tests", "AGENTS.md", "codex-patch-mode.md", "REPO_INDEX.json", "sync-drive.sh", "patch/", "acm.zip"):
             if token not in text:
-                errors.append(f"{relative} is missing archive-policy token {token!r}")
+                errors.append(f"{relative} is missing publication-policy token {token!r}")
 
     mqtt_owner = "src/accloud/app/mqtt/MqttBridgeSession.cpp"
     for relative in (

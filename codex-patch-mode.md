@@ -6,7 +6,7 @@
 
 Tu es Codex, exécutant mécanique sur un dépôt local complet du projet `anycubic-cloud-manager-v3`.
 
-L'utilisateur te fournit une archive ZIP de patch contenant :
+Le patch à appliquer est identifié explicitement par l'utilisateur. Il peut déjà être présent localement ou être disponible dans le canal distant `patch/` du Drive configuré par `sync-drive.conf`. Il contient :
 
 ```text
 - les fichiers projet à remplacer ou créer ;
@@ -30,17 +30,16 @@ inspecter -> contrôler -> appliquer exactement -> valider -> rapporter
 
 ## 2. Ordre de priorité
 
-Les contraintes générales et les instructions d'application ne jouent pas le même rôle.
+Les contraintes générales et les instructions d'application ne jouent pas le même rôle. `regles-generales-production.md` est un document de gouvernance Web : Codex local ne doit ni le rechercher, ni l'exiger, ni l'utiliser comme autorité locale.
 
 Pour les règles de sécurité, d'architecture et de fonctionnement du projet, appliquer :
 
 ```text
 1. instruction explicite de l'utilisateur dans la session ;
-2. AGENTS.md et règles locales du dépôt ;
-3. règles générales de production des correctifs Anycubic Cloud Manager V3, si fournies ;
-4. présent document ;
-5. documentation technique de la zone concernée ;
-6. habitudes génériques de l'outil.
+2. `AGENTS.md` et règles locales du dépôt ;
+3. présent document ;
+4. documentation technique de la zone concernée ;
+5. habitudes génériques de l'outil.
 ```
 
 À l'intérieur de ce cadre, `PATCH_MANIFEST.md` est la source de vérité pour le périmètre, les fichiers, l'ordre procédural particulier et les validations du patch.
@@ -50,7 +49,7 @@ Le manifeste ne peut pas autoriser silencieusement :
 ```text
 - un chemin sortant du dépôt ;
 - l'inclusion d'un secret réel ;
-- la copie de acm.zip dans le dépôt ;
+- la copie d’une archive complète legacy dans le dépôt ;
 - la copie d'outputs de build ;
 - une commande destructive hors périmètre du patch.
 ```
@@ -79,16 +78,25 @@ Exception : si une contradiction bloquante est détectée avant application, arr
 
 ## 4. Dépôt et base de travail
 
-La base complète peut provenir de `acm.zip`, fournie manuellement par l'utilisateur puis extraite dans un répertoire de travail.
+Le dépôt local est la source de vérité. Le Drive est uniquement un espace de publication et de transport ; il ne doit jamais remplacer globalement l’état local.
 
 Règles :
 
 ```text
-- acm.zip est une base complète, jamais un patch ;
-- ne copie jamais acm.zip dans le dépôt ;
-- ne régénère jamais acm.zip ;
 - n'applique le patch qu'au dépôt local désigné comme base de travail ;
-- ne recherche pas une autre copie du projet pour contourner un état local inattendu.
+- ne lance jamais de rclone sync Drive -> dépôt ;
+- récupère uniquement le patch ciblé vers /tmp ;
+- ne copie jamais le répertoire distant patch/ dans le dépôt ;
+- ne recherche pas une autre copie du projet pour contourner un état local inattendu ;
+- Git reste indépendant du mécanisme Drive.
+```
+
+Si le patch doit être récupéré depuis Drive, charger `sync-drive.conf`, identifier exactement le nom demandé puis utiliser une récupération ciblée, par exemple :
+
+```bash
+source ./sync-drive.conf
+rclone lsl "${REMOTE}/patch/"
+rclone copyto "${REMOTE}/patch/patch_XXXX.zip" "/tmp/patch_XXXX.zip"
 ```
 
 Avant toute application, vérifier que la racine de travail correspond bien au projet, notamment par la présence de plusieurs éléments caractéristiques :
@@ -284,7 +292,7 @@ Arrête-toi avant toute modification si :
 - un chemin est absolu, contient .. ou sort du dépôt ;
 - une entrée ZIP non sûre est présente ;
 - le ZIP contient un secret réel ou un artefact runtime sensible ;
-- le ZIP contient acm.zip ou des outputs de build ;
+- le ZIP contient une archive projet complète legacy ou des outputs de build ;
 - le patch annonce une validation comme exécutée alors que le manifeste ne permet pas de l'identifier ;
 - le patch touche un invariant sensible sans le déclarer.
 ```
