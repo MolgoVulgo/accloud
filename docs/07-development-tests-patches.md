@@ -175,7 +175,7 @@ A patch contains `PATCH_MANIFEST.md`, `DELETE_FILES.txt`, `MOVE_FILES.txt` and o
 
 ## Applying a patch
 
-`codex-patch-mode.md` applies only when a complete patch ZIP exists. Codex retrieves only the requested patch from Drive into `/tmp`, inspects it, applies it to the local repository, runs the required tests, prepares targeted diagnostics if needed, then republishes the local state with `sync-drive.sh`.
+`codex-patch-mode.md` applies only when a complete patch ZIP exists. Codex retrieves only the requested patch from Drive into `/tmp`, inspects it, applies it to the local repository, runs the required tests, writes a redacted Markdown report to `diagnostics/` for every attempt, then stops without publishing. The user separately runs `sync` (`./sync-drive.sh`) to publish the project and reports.
 
 ```text
 Drive/<project>/patch/patch_XXXX.zip
@@ -183,11 +183,12 @@ Drive/<project>/patch/patch_XXXX.zip
 -> inspect manifest and paths
 -> apply to local repository
 -> mandatory validations
--> diagnostics/ when needed
--> sync-drive.sh
+-> mandatory local diagnostics/<patch>_application_report.md
+-> final report; no automatic Drive upload
+-> USER manually runs sync-drive.sh (project + diagnostics)
 ```
 
-No global Drive -> repository synchronization is allowed. The applier does not redesign the patch or modify code opportunistically to make a failing test pass.
+No global Drive -> repository synchronization is allowed. The applier does not redesign the patch or modify code opportunistically to make a failing test pass. The manual sync excludes `diagnostics/` from the destructive phase and copies only allowed report files without deleting remote history. Reports remain ignored by Git, and sensitive content must be redacted.
 
 ## Failure policy
 

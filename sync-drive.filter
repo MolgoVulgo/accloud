@@ -53,6 +53,8 @@
 - /accloud/logs/**
 - /accloud/session.json
 - /accloud/accloud_cache.db
+- /**/session.json
+- /**/accloud_cache.db
 - /uc.makeronline.com.har
 - /**/*.har
 - /**/.env
@@ -75,6 +77,13 @@
 - /acm.zip
 - /nlohmann_json.zip
 - /accloud-build-deps.zip
+
+# Retours Codex de patch : rapports Markdown expurges publies sur Drive, ignores par Git.
+# Autoriser uniquement le marqueur et les rapports conformes, jamais un log ou une sortie brute.
+# Les rapports sont publies par rclone copy NON destructif lors du sync MANUEL utilisateur.
++ /diagnostics/.gitkeep
++ /diagnostics/*_application_report*.md
+- /diagnostics/**
 
 # Livraison des patchs : canal distant séparé, jamais synchronisé vers/depuis le dépôt.
 - /patch

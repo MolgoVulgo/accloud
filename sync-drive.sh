@@ -39,9 +39,26 @@ index_path.write_text(
 print(f"{len(files)} fichiers indexés (hors index lui-même)")
 ' "${PROJECT_NAME}" "${INDEX_FILE}"
 
-printf 'Synchronisation locale -> Drive vers %s...\n' "${REMOTE}"
-rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${FILTER_FILE}"
+# Les anciens rapports sur Drive ne doivent jamais être supprimés si absents localement.
+# Un filtre temporaire retire diagnostics/ seulement du rclone sync destructif.
+BASE_FILTER="$(mktemp "${TMPDIR:-/tmp}/accloud-sync-base.XXXXXX")"
+trap 'rm -f "${BASE_FILTER}"' EXIT
+{
+    printf '%s\n' '- /diagnostics/**'
+    cat "${FILTER_FILE}"
+} > "${BASE_FILTER}"
+
+printf 'Synchronisation du dépôt local -> Drive vers %s (hors diagnostics)...\n' "${REMOTE}"
+rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${BASE_FILTER}"
+
+# Diagnostics : transfert non destructif. Le nom et le périmètre restent filtrés.
+# Aucun ancien rapport distant absent localement n'est supprimé.
+printf 'Copie non destructive des rapports Codex...\n'
+rclone copy "${ROOT_DIR}/diagnostics" "${REMOTE}/diagnostics" \
+    --filter '+ /.gitkeep' \
+    --filter '+ /*_application_report*.md' \
+    --filter '- /**'
 
 printf 'Publication de REPO_INDEX.json...\n'
 rclone copyto "${INDEX_FILE}" "${REMOTE}/REPO_INDEX.json"
-printf 'Synchronisation terminée.\n'
+printf 'Synchronisation manuelle terminée.\n' 

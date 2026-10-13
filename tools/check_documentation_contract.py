@@ -87,7 +87,8 @@ def check_repository_control_files(root: Path, errors: list[str]) -> None:
     sync_script = read_text(root / "sync-drive.sh") if (root / "sync-drive.sh").is_file() else ""
     for token in (
         'source "${CONF_FILE}"',
-        'rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${FILTER_FILE}"',
+        'rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${BASE_FILTER}"',
+        'rclone copy "${ROOT_DIR}/diagnostics" "${REMOTE}/diagnostics"',
         'rclone copyto "${INDEX_FILE}" "${REMOTE}/REPO_INDEX.json"',
         '"project": project_name',
     ):
@@ -100,10 +101,128 @@ def check_repository_control_files(root: Path, errors: list[str]) -> None:
             errors.append(f"sync-drive.conf is missing project token {token!r}")
 
     sync_filter = read_text(root / "sync-drive.filter") if (root / "sync-drive.filter").is_file() else ""
-    for token in ("- /regles-generales-production.md", "- /.codex", "- /patch/**", "- /REPO_INDEX.json", "- /**/*.key", "- /**/*.har"):
+    for token in ("- /regles-generales-production.md", "- /.codex", "- /patch/**", "- /REPO_INDEX.json", "- /**/*.key", "- /**/*.har", "- /**/session.json", "- /**/accloud_cache.db", "+ /diagnostics/.gitkeep", "+ /diagnostics/*_application_report*.md", "- /diagnostics/**"):
         if token not in sync_filter:
             errors.append(f"sync-drive.filter is missing required exclusion {token!r}")
 
+    # Reports are allowed on Drive although ignored by Git; other diagnostics remain excluded.
+    # Manual sync MUST preserve historical remote-only diagnostics.
+    for token in ('- /diagnostics/**', 'rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${BASE_FILTER}"',
+                  'rclone copy "${ROOT_DIR}/diagnostics" "${REMOTE}/diagnostics"',
+                  "--filter '+ /*_application_report*.md'", "--filter '- /**'"):
+        if token not in sync_script:
+            errors.append(f"sync-drive.sh lacks non-destructive report rule: {token!r}")
+    if 'rclone sync "${ROOT_DIR}" "${REMOTE}" --filter-from "${FILTER_FILE}"' in sync_script:
+        errors.append("sync-drive.sh must not delete remote-only diagnostic reports")
+    required_diagnostic_rules = (
+        "+ /diagnostics/.gitkeep",
+        "+ /diagnostics/*_application_report*.md",
+        "- /diagnostics/**",
+    )
+    diagnostic_rules = [line.strip() for line in sync_filter.splitlines()
+                        if line.lstrip().startswith(("+ ", "- ")) and "/diagnostics/" in line]
+    if diagnostic_rules != list(required_diagnostic_rules):
+        errors.append("sync-drive.filter must publish only Codex reports and .gitkeep, in correct rule order")
+    gitignore = read_text(root / ".gitignore") if (root / ".gitignore").is_file() else ""
+    if "diagnostics/*" not in gitignore:
+        errors.append(".gitignore must keep diagnostics reports out of Git")
+
+
+
+def check_codex_policy_contract(root: Path, errors: list[str]) -> None:
+    """Guard mechanical patch application vs. user-initiated manual publishing."""
+    agents = read_text(root / "AGENTS.md") if (root / "AGENTS.md").is_file() else ""
+    codex = read_text(root / "codex-patch-mode.md") if (root / "codex-patch-mode.md").is_file() else ""
+    for token in (
+        "document normatif local principal", "regles-generales-production.md",
+        "mise en conformité des tests", "local-full", "uniquement sur un commit",
+        "Cache CMake après déplacement du dépôt", "ancien chemin absolu",
+        "répertoire binaire neuf et isolé", "ne pas faire de `rm -rf`",
+        "Rapport diagnostic local obligatoire", "chaque tentative",
+        "EN_ATTENTE_SYNC_UTILISATEUR", "Codex ne publie jamais automatiquement",
+        "Seule une commande `sync` distincte", "rclone copy", "non destructif",
+        "ignoré", "expurger", "secrets, tokens, cookies, clés privées",
+        "HAR", "`session.json`", "bases locales", "logs runtime bruts",
+        "URLs signées complètes", "Ne jamais faire de synchronisation globale Drive → local",
+    ):
+        if token not in agents:
+            errors.append(f"AGENTS.md lacks manual-sync safety rule: {token!r}")
+
+    for token in (
+        "les trois fichiers sont toujours présents", "le manifeste ne peut pas dispenser",
+        "arrête l'application avant toute écriture", "regles-generales-production.md",
+        "tests doivent être adaptés", "local-full", "uniquement sur un commit",
+        "Cache CMake incompatible après déplacement", "aucun retry automatique",
+        'mktemp -d "${TMPDIR:-/tmp}/accloud-protected-core.XXXXXX"',
+        'cmake --preset protected-core -B "$FRESH_BUILD_DIR"',
+        'cmake --build "$FRESH_BUILD_DIR"',
+        'ctest --test-dir "$FRESH_BUILD_DIR"',
+        "## 24 bis. Publication différée", "## 24 ter. Rapport local de diagnostic obligatoire",
+        "Ne jamais synchroniser automatiquement", "EN_ATTENTE_SYNC_UTILISATEUR",
+        "l’utilisateur initie une opération distincte `sync`", "rclone copy",
+        "non destructive", "Aucun `rclone copyto` ciblé", "ignorés par `.gitignore`",
+        "chemins relatifs", "secrets, tokens, cookies, clés privées",
+        "HAR", "`session.json`", "bases locales", "logs runtime bruts",
+        "URLs signées complètes", "Ne pas écraser un ancien rapport", "sans transfert",
+    ):
+        if token not in codex:
+            errors.append(f"codex-patch-mode.md lacks manual-sync safety rule: {token!r}")
+
+    # Positive tokens above do not by themselves prohibit legacy auto-publication prose.
+    for label, content in (("AGENTS.md", agents), ("codex-patch-mode.md", codex)):
+        for legacy in (
+            "Codex DOIT exécuter `./sync-drive.sh`",
+            "transfert ciblé et sa vérification restent obligatoires",
+            "Codex DOIT tenter **hors sandbox Codex**",
+            "publier obligatoirement depuis l'environnement local",
+            "rclone copyto \"$REPORT_FILE\"",
+        ):
+            if legacy in content:
+                errors.append(f"{label} retains forbidden automatic publication: {legacy!r}")
+
+    # A concise chat must never replace the complete local Markdown audit report.
+    for token in (
+        "## Réponses Codex brèves", "4 à 6 lignes maximum",
+        "Le rapport Markdown local reste **complet, vérifiable et expurgé**",
+        "Aucun message de progression", "Drive : en attente de sync",
+        "commande manuelle `sync`", "alerte de sécurité",
+    ):
+        if token not in agents:
+            errors.append(f"AGENTS.md lacks concise-chat contract: {token!r}")
+
+    for token in (
+        "## 26. Réponse conversationnelle courte", "## 27. Réponse courte en cas de refus",
+        "4 à 6 lignes maximum", "Aucun message de progression",
+        "<archive>.zip — APPLIQUÉ", "<archive>.zip — ÉCHEC",
+        "<archive>.zip — NON APPLIQUÉ", "SYNC — OK", "SYNC — ÉCHEC",
+        "Rapport : diagnostics/<archive>_application_report.md",
+        "Drive : en attente de sync", "Index distant/local : identique",
+        "rapport détaillé dans `diagnostics/`", "commandes, SHA-256",
+        "autorisations indispensables", "mode de publication manuelle",
+    ):
+        if token not in codex:
+            errors.append(f"codex-patch-mode.md lacks concise-chat contract: {token!r}")
+
+    # A verbose conversation template must not be reintroduced in the chat section.
+    chat_start = "## 26. Réponse conversationnelle courte"
+    chat_end = "## 28. Résumé opératoire minimal"
+    if chat_start in codex and chat_end in codex:
+        chat = codex.split(chat_start, 1)[1].split(chat_end, 1)[0]
+        for legacy_heading in (
+            "État initial notable :", "Fichiers supprimés :", "Fichiers déplacés :",
+            "Commandes lancées :", "État final notable :",
+        ):
+            if legacy_heading in chat:
+                errors.append(f"codex-patch-mode.md retains verbose chat field: {legacy_heading!r}")
+    else:
+        errors.append("codex-patch-mode.md lacks concise chat section boundaries")
+
+    for forbidden in (
+        "applique néanmoins le fichier fourni par le ZIP",
+        "leur absence n'est acceptable que si", "manque sans justification explicite",
+    ):
+        if forbidden in codex:
+            errors.append(f"codex-patch-mode.md retains unsafe legacy rule: {forbidden!r}")
 
 def check_temporary_documentation(root: Path, errors: list[str]) -> None:
     for relative in ("docs/tmp", "docs/FR/tmp"):
@@ -489,6 +608,7 @@ def main() -> int:
 
     check_required_pairs(root, errors)
     check_repository_control_files(root, errors)
+    check_codex_policy_contract(root, errors)
     check_temporary_documentation(root, errors)
     check_markdown_links(root, errors)
     check_mqtt_and_ssl_contract(root, errors)

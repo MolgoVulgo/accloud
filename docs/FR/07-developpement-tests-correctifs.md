@@ -175,7 +175,7 @@ Un patch contient `PATCH_MANIFEST.md`, `DELETE_FILES.txt`, `MOVE_FILES.txt` et u
 
 ## Appliquer un patch
 
-`codex-patch-mode.md` s'applique seulement lorsqu'un patch ZIP complet existe. Codex récupère uniquement le patch demandé depuis le Drive vers `/tmp`, l’inspecte, l’applique au dépôt local, exécute les tests obligatoires, prépare des diagnostics ciblés si nécessaire puis republie l’état local avec `sync-drive.sh`.
+`codex-patch-mode.md` s'applique seulement lorsqu'un patch ZIP complet existe. Codex récupère uniquement le patch demandé depuis le Drive vers `/tmp`, l’inspecte, l’applique au dépôt local, exécute les tests obligatoires, rédige un rapport Markdown expurgé dans `diagnostics/` pour chaque tentative, puis termine sans publier. L’utilisateur lance séparément `sync` (`./sync-drive.sh`) pour publier le dépôt et les rapports.
 
 ```text
 Drive/<projet>/patch/patch_XXXX.zip
@@ -183,11 +183,12 @@ Drive/<projet>/patch/patch_XXXX.zip
 -> inspection manifeste et chemins
 -> application au dépôt local
 -> validations obligatoires
--> diagnostics/ si nécessaire
--> sync-drive.sh
+-> rapport local obligatoire diagnostics/<patch>_application_report.md
+-> message final ; aucune publication automatique
+-> UTILISATEUR lance manuellement sync-drive.sh (dépôt + diagnostics)
 ```
 
-Aucune synchronisation globale Drive -> dépôt n’est autorisée. L'applicateur ne redéfinit pas le patch et ne modifie pas opportunistement le code pour faire passer un test.
+Aucune synchronisation globale Drive -> dépôt n’est autorisée. L'applicateur ne redéfinit pas le patch et ne modifie pas opportunistement le code pour faire passer un test. Le sync manuel exclut `diagnostics/` de la phase destructive, puis copie sans suppression les seuls rapports autorisés, pour conserver l’historique distant. Git ignore les rapports et leur contenu sensible doit être expurgé.
 
 ## Politique d'échec
 

@@ -23,7 +23,7 @@ Tu n'es pas chargé de redéfinir l'architecture, d'améliorer le code, de norma
 Tu dois :
 
 ```text
-inspecter -> contrôler -> appliquer exactement -> valider -> rapporter
+inspecter -> contrôler -> appliquer exactement -> valider -> rédiger le diagnostic local même en échec -> rapporter -> attendre sync manuel utilisateur
 ```
 
 ---
@@ -69,10 +69,10 @@ Pendant l'inspection, l'application et la validation :
 - ne donne pas de plan intermédiaire ;
 - ne commente pas chaque commande ;
 - ne demande pas confirmation sauf blocage réel avant modification ;
-- ne produis qu'un seul message final après application et validation.
+- ne produis qu'un seul message final bref (4 à 6 lignes maximum) après application et validation ; tous les détails vont dans le rapport Markdown local.
 ```
 
-Exception : si une contradiction bloquante est détectée avant application, arrête-toi et réponds uniquement avec le blocage précis.
+Exception : en cas de contradiction bloquante avant application, arrêter les modifications projet, consigner le blocage dans le rapport diagnostique local et produire le message final. Ne demander aucune autorisation d'escalade pour publier un rapport ou un dépôt au terme du patch.
 
 ---
 
@@ -99,6 +99,8 @@ rclone lsl "${REMOTE}/patch/"
 rclone copyto "${REMOTE}/patch/patch_XXXX.zip" "/tmp/patch_XXXX.zip"
 ```
 
+Pour une archive de paramètres demandée explicitement par l'utilisateur, employer le chemin ciblé `"${REMOTE}/patch/parametre/parametre_001.zip"` et le destination `"/tmp/parametre_001.zip"` ; ne pas aspirer le dossier `patch/` ni changer le nom fourni.
+
 Avant toute application, vérifier que la racine de travail correspond bien au projet, notamment par la présence de plusieurs éléments caractéristiques :
 
 ```text
@@ -116,7 +118,7 @@ Si la racine ne peut pas être identifiée de manière non ambiguë, arrêter av
 
 ## 5. Fichiers de procédure obligatoires
 
-Le ZIP doit normalement contenir :
+Le ZIP DOIT toujours contenir :
 
 ```text
 PATCH_MANIFEST.md
@@ -130,12 +132,13 @@ Règles :
 
 ```text
 - PATCH_MANIFEST.md est obligatoire ;
-- DELETE_FILES.txt peut être vide ;
-- MOVE_FILES.txt peut être vide ;
-- leur absence n'est acceptable que si le manifeste indique explicitement qu'ils ne sont pas nécessaires.
+- DELETE_FILES.txt est obligatoire et peut ne contenir aucune opération ;
+- MOVE_FILES.txt est obligatoire et peut ne contenir aucune opération ;
+- les trois fichiers sont toujours présents dans le ZIP, même si DELETE_FILES.txt et MOVE_FILES.txt ne contiennent aucune opération ;
+- le manifeste ne peut pas dispenser de l'un des trois fichiers.
 ```
 
-Si `PATCH_MANIFEST.md` est absent, arrêter avant toute modification.
+Si l'un des trois fichiers est absent, arrêter avant toute modification.
 
 ---
 
@@ -146,7 +149,7 @@ Si `PATCH_MANIFEST.md` est absent, arrêter avant toute modification.
 - supprimer uniquement ce qui est listé ;
 - déplacer uniquement ce qui est listé ;
 - remplacer ou créer uniquement les fichiers fournis ;
-- exécuter uniquement les validations demandées ou les validations par défaut définies ici ;
+- exécuter les validations demandées ou celles par défaut définies ici, sans omettre les gates obligatoires pour les changements concernés ;
 - ne pas modifier le code pour faire passer un test ;
 - ne pas restaurer des changements préexistants ;
 - ne pas poursuivre un chantier au-delà du patch fourni ;
@@ -176,11 +179,11 @@ mktemp -d /tmp/codex-accloud-patch.XXXXXX
 
 4. Extraire le ZIP uniquement dans ce répertoire.
 5. Lire `PATCH_MANIFEST.md`.
-6. Lire `DELETE_FILES.txt` s'il existe.
-7. Lire `MOVE_FILES.txt` s'il existe.
+6. Lire `DELETE_FILES.txt` (obligatoire, éventuellement sans opération).
+7. Lire `MOVE_FILES.txt` (obligatoire, éventuellement sans opération).
 8. Vérifier que chaque fichier annoncé dans le manifeste est présent dans le ZIP.
-9. Vérifier que chaque suppression annoncée est listée dans `DELETE_FILES.txt`, sauf instruction explicite du manifeste.
-10. Vérifier que chaque déplacement annoncé est listé dans `MOVE_FILES.txt`, sauf instruction explicite du manifeste.
+9. Vérifier que chaque suppression annoncée est listée dans `DELETE_FILES.txt`.
+10. Vérifier que chaque déplacement annoncé est listé dans `MOVE_FILES.txt`.
 11. Vérifier les chemins, les types d'entrées et les contenus interdits.
 12. Si le dépôt est géré par Git, capturer l'état initial :
 
@@ -267,7 +270,8 @@ Arrêter avant application si le ZIP contient, sauf cas explicitement justifié 
 - base locale accloud_cache.db ;
 - fichiers runtime sous ~/.local/share/accloud ;
 - dépendances vendorisées non demandées ;
-- fichiers étrangers au dépôt.
+- fichiers étrangers au dépôt ;
+- `regles-generales-production.md` (document Web uniquement, interdit comme entrée ZIP, remplacement ou cible de DELETE_FILES.txt/MOVE_FILES.txt).
 ```
 
 Les certificats publics déjà versionnés peuvent être remplacés uniquement s'ils sont explicitement annoncés dans le manifeste.
@@ -287,12 +291,14 @@ Arrête-toi avant toute modification si :
 - un fichier annoncé comme remplacé ou créé est absent du ZIP ;
 - une suppression annoncée n'est pas listée dans DELETE_FILES.txt ;
 - un déplacement annoncé n'est pas listé dans MOVE_FILES.txt ;
-- DELETE_FILES.txt ou MOVE_FILES.txt manque sans justification explicite ;
+- DELETE_FILES.txt ou MOVE_FILES.txt manque, quelle que soit la justification proposée ;
 - le manifeste et le contenu réel du ZIP se contredisent ;
 - un chemin est absolu, contient .. ou sort du dépôt ;
 - une entrée ZIP non sûre est présente ;
 - le ZIP contient un secret réel ou un artefact runtime sensible ;
 - le ZIP contient une archive projet complète legacy ou des outputs de build ;
+- `regles-generales-production.md` figure dans le ZIP, DELETE_FILES.txt ou MOVE_FILES.txt ;
+- un fichier ciblé est localement modifié ou diffère de la base déclarée, sans autorisation explicite préalable de l'utilisateur ;
 - le patch annonce une validation comme exécutée alors que le manifeste ne permet pas de l'identifier ;
 - le patch touche un invariant sensible sans le déclarer.
 ```
@@ -392,9 +398,9 @@ Règles :
 - ne confonds pas une modification préexistante avec une modification introduite par le patch.
 ```
 
-Si un fichier ciblé par le patch était déjà modifié, applique néanmoins le fichier fourni par le ZIP, sauf instruction contraire explicite. Signale dans le rapport que la destination contenait une modification préexistante qui a été remplacée par le patch.
+Si un fichier ciblé (remplacement, suppression ou déplacement) contient une modification préexistante non déclarée ou ne correspond plus à la base du manifeste, **arrête l'application avant toute écriture**. Ne l'écrase pas, ne le supprime pas et ne le fusionne pas implicitement. Seule une instruction explicite de l'utilisateur autorisant le traitement précis de ce conflit permet de reprendre après un nouvel examen de la base. Vérifie également qu'un patch déjà intégré ne sera pas réappliqué.
 
-Ne tente pas de fusion implicite entre le contenu local et le contenu du ZIP.
+Les modifications préexistantes non ciblées sont préservées ; elles ne justifient pas un nettoyage automatique.
 
 ---
 
@@ -407,9 +413,10 @@ Appliquer dans cet ordre :
 3. Copier ou remplacer les fichiers projet contenus dans le ZIP.
 4. Ne pas copier les fichiers de procédure, sauf demande explicite du manifeste.
 5. Vérifier que le contenu appliqué correspond au ZIP.
-6. Exécuter les commandes de validation.
-7. Capturer l'état final Git si disponible.
-8. Produire le rapport final.
+6. Exécuter les commandes de validation obligatoires (et mettre les tests en conformité avec tout changement fonctionnel/structurel ; ne pas créer de correction non incluse dans le ZIP).
+7. Capturer l’état final Git si disponible.
+8. Dans **tous les cas** (succès, arrêt sur erreur, refus avant application), rédiger le rapport Markdown final `diagnostics/<archive>_application_report.md` ou une version suffixée UTC, avec statut `EN_ATTENTE_SYNC_UTILISATEUR` (section 24 ter).
+9. Produire le message final. **Ne jamais synchroniser automatiquement** le dépôt ou le diagnostic ; l’utilisateur déclenche séparément `sync` après les travaux, même si les validations ont réussi.
 
 Règles détaillées :
 
@@ -419,7 +426,7 @@ Règles détaillées :
 - destination d'un déplacement déjà présente : bloquant sauf règle explicite ;
 - fichier à créer absent du dépôt : le créer uniquement si le ZIP le fournit ;
 - répertoire parent absent : le créer uniquement pour recevoir un fichier ou déplacement déclaré ;
-- aucune autre modification auxiliaire n'est autorisée.
+- aucune autre modification auxiliaire n'est autorisée, **sauf la rédaction du rapport dans `diagnostics/` exigée par la section 24 ter**, qui n'est pas un fichier du patch.
 ```
 
 Si `git mv` échoue à cause d'un verrou Git, d'un problème d'index ou de droits :
@@ -457,7 +464,7 @@ Interprétation :
 
 ```text
 - commandes explicites : exécuter exactement ces commandes ;
-- aucune validation explicitement demandée : ne rien inventer, rapporter non exécutée par instruction ;
+- aucune validation explicitement demandée : ne rien inventer, rapporter non exécutée par instruction ; ne pas déclarer de gate réussi sans exécution ;
 - section de validation absente ou ambiguë : utiliser la validation locale par défaut ci-dessous ;
 - validation live : appliquer les règles spécifiques de la section suivante.
 ```
@@ -507,6 +514,8 @@ Ne lance pas automatiquement :
 - une commande d'impression ;
 - une commande vers une imprimante.
 ```
+
+Pour tout changement Qt/QML/SQL/MQTT ou d'intégration, exécuter également `local-full` comme gate obligatoire non-live, même si des tests ciblés passent : `cmake --preset local-full`, `cmake --build --preset local-full --clean-first`, `ctest --preset local-full --output-on-failure`. Vérifier que l'opt-in live n'est pas activé. Les tests doivent être adaptés aux modifications fonctionnelles ou structurelles dans le patch de conception ; Codex ne répare pas de lui-même un test obsolète pendant l'application mécanique.
 
 Une validation `prod` ou `dev-debug` n'est exécutée que si le manifeste la demande.
 
@@ -608,13 +617,35 @@ Si CMake, Ninja, Qt6, Qt6::Mqtt, Qt6::Sql, Qt Quick Test, OpenSSL, Python ou une
 - exécute seulement les validations encore possibles sans altérer le dépôt.
 ```
 
-Une validation partielle doit être décrite comme partielle.
+Une validation partielle doit être décrite comme partielle. La publication n’est pas une validation Codex : signaler `EN_ATTENTE_SYNC_UTILISATEUR`, et ne déclarer aucune synchronisation exécutée.
+
+---
+
+## 20 bis. Cache CMake incompatible après déplacement — reprise explicitement autorisée
+
+Un échec de configuration indiquant que `CMakeCache.txt` ou `CMakeLists.txt` correspond à un **ancien chemin absolu** peut être dû au déplacement du dépôt, sans impliquer une régression du patch. Cet échec reste bloquant pour la chaîne en cours : **ne pas publier** et ne pas annoncer un build ou un test réussi. Appliquer la règle d'arrêt de la section 21, documenter la commande et l'erreur, puis attendre une instruction explicite de l'utilisateur ou un nouveau `PATCH_MANIFEST.md` qui autorise et décrit une reprise distincte. La présente section n'autorise **aucun retry automatique** d'un patch précédent.
+
+Pour cette reprise autorisée, employer un **répertoire de build neuf et isolé hors du dépôt**, tout en conservant le preset demandé. Pour le gate documentaire `protected-core`, les commandes sont :
+
+```bash
+# Depuis accloud/ ; à exécuter seulement si le nouveau manifeste l'autorise.
+FRESH_BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/accloud-protected-core.XXXXXX")"
+cmake --preset protected-core -B "$FRESH_BUILD_DIR"
+cmake --build "$FRESH_BUILD_DIR"
+ctest --test-dir "$FRESH_BUILD_DIR" -R '^accloud_documentation_contract$' --output-on-failure
+```
+
+`-B` remplace exclusivement le répertoire binaire du preset ; il ne désactive aucune variable de cache ou obligation de validation. Les trois commandes doivent viser **le même** `$FRESH_BUILD_DIR`. Ne pas utiliser `cmake --build --preset protected-core` ni `ctest --preset protected-core` pour ce répertoire isolé, car les presets de build/test désignent leur `binaryDir` historique. Ne pas inclure `-DACCLOUD_DEPENDENCY_ARCHIVE` lorsque les dépendances natives sont disponibles.
+
+Interdictions strictes : supprimer ou modifier `accloud/build/`, effacer `CMakeCache.txt`, utiliser `rm -rf`, `git reset`, `git clean`, réécrire les presets pour contourner le cache, masquer une erreur CMake réelle, désactiver des tests ou effectuer un `sync-drive.sh` avant succès des validations. Si `mktemp`, la configuration, le build ou CTest échoue, s'arrêter et rapporter l'échec exact. Un test live reste soumis à opt-in, et les gates `local-full` et `prod` restent soumis aux règles du manifeste et du projet.
+
+En cas de reprise réussie, rédiger le rapport local avec l'échec initial et les nouvelles commandes exécutées. Ne pas lancer de synchronisation ni vérifier le Drive : l'utilisateur lancera ultérieurement la commande `sync`. La publication ne prouve pas rétroactivement la réussite des tests.
 
 ---
 
 ## 21. Échec d'application, de test ou de build
 
-Si une commande obligatoire échoue :
+Si une commande obligatoire échoue (application, build ou test) :
 
 ```text
 1. arrêter immédiatement la chaîne de validation ;
@@ -626,7 +657,8 @@ Si une commande obligatoire échoue :
 7. redacter tout secret ou URL signée ;
 8. identifier le fichier ou composant indiqué par l'erreur si disponible ;
 9. qualifier l'échec ;
-10. rapporter le résultat final sans proposer de refactor.
+10. créer/compléter le rapport local conformément à la section 24 ter, sans transfert Drive ;
+11. rapporter le résultat final sans proposer de refactor.
 ```
 
 Qualifications possibles :
@@ -653,7 +685,7 @@ Ne crée pas toi-même un patch suffixé pour corriger l'échec. Le correctif su
 ```text
 - ne supprime rien hors DELETE_FILES.txt ;
 - ne déplace rien hors MOVE_FILES.txt ;
-- ne modifie aucun fichier absent du ZIP ;
+- ne modifie aucun fichier absent du ZIP, **sauf le rapport diagnostique obligatoire sous `diagnostics/`** ;
 - ne reformate aucun fichier non ciblé ;
 - ne mets pas à jour les dépendances ;
 - ne génère pas de credentials ;
@@ -732,6 +764,28 @@ Si le patch original a finalement été validé et que le correctif suffixé n'e
 
 ---
 
+## 24 bis. Publication différée — commande manuelle `sync`
+
+**Il est interdit à Codex de lancer automatiquement `./sync-drive.sh`, `rclone sync`, `rclone copy` ou `rclone copyto` vers Drive après un patch**, qu’il réussisse ou échoue. Aucune autorisation d’escalade pour la publication du rapport ne doit être demandée pendant l’application. La récupération ciblée initiale du ZIP depuis Drive reste autorisée conformément à la section 4 : elle n’est pas une publication.
+
+Après la fin des travaux et la génération du rapport, **seul l’utilisateur initie une opération distincte `sync`** depuis l’environnement local autorisé. Elle exécute `./sync-drive.sh` à la racine du dépôt. Le script effectue la publication filtrée `LOCAL → DRIVE`, la copie **non destructive** des rapports présents sous `diagnostics/`, puis publie `REPO_INDEX.json`. La publication est indépendante de la réussite ou de l’échec du patch antérieur : un rapport d’échec doit pouvoir être consulté sur Drive après `sync` manuel, sans signifier que le patch est validé.
+
+La commande manuelle peut être contrôlée par l’utilisateur en relisant `rclone cat "${REMOTE}/REPO_INDEX.json"` et en le comparant à l’index local. Ne jamais déclarer cette vérification effectuée par Codex si elle ne l’a pas été. `rclone sync` ne doit pas supprimer d’anciens diagnostics distants ; le script exclut `diagnostics/` de l’étape destructive et utilise `rclone copy` pour ses rapports autorisés. Aucune synchronisation globale Drive → dépôt ni publication automatique du répertoire distant `patch/`.
+
+## 24 ter. Rapport local de diagnostic obligatoire — succès ET échec
+
+**À chaque tentative d’application** d’un ZIP, même refusée avant toute écriture ou interrompue par un échec CMake/CTest, rédiger localement un rapport Markdown. Ce rapport est une sortie de procédure, sans modification applicative supplémentaire. **Aucun transfert ciblé n’est déclenché par Codex.**
+
+Nom : `diagnostics/<nom-exact-du-zip-sans-.zip>_application_report.md`. Ne pas écraser un ancien rapport lors d’une reprise ; utiliser un suffixe UTC unique, conserver `.gitkeep` et les anciens rapports. Rejeter tout nom contenant des séparateurs, `..` ou caractères dangereux. Si l’écriture locale échoue, signaler le blocage dans le message final.
+
+Le rapport final renseigne l’archive, les changements Git préexistants, les suppressions/déplacements/remplacements, les contrôles SHA-256, les commandes réellement exécutées et leurs codes retour, les sorties d’erreur utiles **expurgées**, les tests et builds exécutés/omis, le statut `VALIDE_LOCAL` / `ECHEC_LOCAL` / `A_VALIDER_LOCAL`, l’absence de test live/commit le cas échéant, ainsi que `publication Drive : EN_ATTENTE_SYNC_UTILISATEUR`. Il ne rapporte aucune validation ni publication non exécutée comme réussie.
+
+**Protection des données** : le rapport destiné à `diagnostics/` ne contient pas de secrets, tokens, cookies, clés privées, HAR, `session.json`, bases locales, logs runtime bruts ni URLs signées complètes. N’utiliser que les chemins relatifs ou placeholders (`<DEPOT_LOCAL>`, `<BUILD_DIR>`), les commandes normalisées, les résultats utiles et les SHA-256 non sensibles lorsque nécessaires au diagnostic. Expurger le rapport **avant** de le consigner comme publiable. Des informations techniques détaillées peuvent rester localement hors du périmètre publié, mais jamais des secrets ajoutés par le patch.
+
+**Git / Drive séparés** : les rapports sont ignorés par `.gitignore`, mais la commande manuelle `sync` les publie via `sync-drive.sh` et `sync-drive.filter` (`diagnostics/*_application_report*.md`, `.gitkeep` uniquement). Le script synchronise les fichiers du dépôt sans effacer les anciens rapports distants, puis les copie par `rclone copy` sans suppression. `REPO_INDEX.json` décrit les fichiers filtrés présents localement ; les rapports historiques conservés uniquement sur Drive peuvent exister en plus. Aucun `rclone copyto` ciblé, aucune vérification `rclone cat | cmp` du rapport et aucune escalade hors sandbox ne sont exigés lors de l’application du patch.
+
+---
+
 ## 25. Git, commit et push
 
 L'application d'un patch ne comprend pas automatiquement un commit.
@@ -747,109 +801,71 @@ Règles :
 - ne mélange pas fichiers du patch et changements préexistants.
 ```
 
-Si un commit est explicitement demandé dans la même instruction :
+Si la demande porte **uniquement sur un commit**, ne lancer aucun test préalable sauf demande explicite de l'utilisateur, conformément à `AGENTS.md`. Si l'utilisateur demande **application du patch et commit**, les validations obligatoires du manifeste restent des exigences de l'application ; les exécuter avant tout commit. Si un test obligatoire est interdit ou échoue, bloquer le commit plutôt que contourner le gate.
 
 ```text
-- appliquer d'abord le patch ;
-- exécuter les validations prévues ;
+- appliquer d'abord le patch, uniquement après inspection de la base ;
+- exécuter les validations obligatoires du patch quand celui-ci est à appliquer ;
 - arrêter sans commit si une validation obligatoire échoue ;
 - inclure uniquement les fichiers du patch ;
 - exclure build, caches, logs, HAR, session, secrets et binaires ;
 - rapporter le hash du commit sans exposer d'identifiant interne inutile.
 ```
 
----
-
-## 26. Rapport final attendu
-
-En cas d'application achevée, répondre uniquement avec ce format :
-
-```text
-Archive appliquée :
-- nom_du_patch.zip
-
-État initial notable :
-- fichiers déjà modifiés avant patch, ou aucun
-- fichiers ciblés déjà modifiés avant remplacement, ou aucun
-
-Fichiers supprimés :
-- chemin : supprimé
-- chemin : déjà absent
-- ou aucun
-
-Fichiers déplacés :
-- ancien -> nouveau
-- préciser filesystem mv si git mv a échoué
-- ou aucun
-
-Fichiers remplacés/créés :
-- chemin
-- ou aucun
-
-Contrôles d'application :
-- contenu appliqué conforme au ZIP : oui/non
-- fichiers de procédure copiés dans le dépôt : oui/non
-- contenus interdits détectés : aucun ou détail
-
-Commandes lancées :
-- commande exacte
-- ou aucune, par instruction
-
-Résultat des tests :
-- commande : succès/échec/non disponible
-- tests omis par dépendance : détail
-- ou non exécutés par instruction
-
-Résultat du build :
-- commande : succès/échec/non disponible
-- ou non exécuté par instruction
-
-Validations live :
-- commande : succès/échec
-- ou non exécutées : raison
-
-État final notable :
-- fichiers du patch modifiés
-- fichiers préexistants non ciblés toujours présents
-- artefacts générés par build/tests
-
-Erreurs ou blocages éventuels :
-- aucun
-- ou détail factuel et redacted
-```
-
-Le rapport doit être factuel.
-
-Ne conclus pas avec :
-
-```text
-- une proposition de refactor ;
-- une suggestion de correction supplémentaire ;
-- une question ;
-- une proposition de prochain patch ;
-- une formule conversationnelle.
-```
+La synchronisation Drive ne fait pas partie de l'application ni du commit. L'utilisateur décide séparément de lancer `sync` lorsque le rapport final existe. Ne pas utiliser `git push` à la place.
 
 ---
 
-## 27. Rapport en cas de contradiction avant application
+## 26. Réponse conversationnelle courte — application et sync
 
-Si un blocage est détecté avant modification, répondre uniquement :
+Après avoir rédigé le **rapport détaillé dans `diagnostics/`**, répondre en **4 à 6 lignes maximum**. Ne pas déverser le rapport dans le chat. Ne pas énumérer fichiers, commandes, SHA-256, résultats de chaque test ou état Git ; toutes ces données restent consignées dans le Markdown local, avec codes retour, erreurs utiles expurgées et statuts réellement obtenus. **Aucun message de progression** pendant le travail normal.
+
+Application réussie (exemple de quatre lignes) :
 
 ```text
-Patch non appliqué.
-
-Archive inspectée :
-- nom_du_patch.zip
-
-Contradiction bloquante :
-- description exacte
-
-État du dépôt :
-- aucune modification effectuée
+<archive>.zip — APPLIQUÉ
+Tests : OK (<nombre de tests réellement exécutés>), ou préciser les omissions.
+Rapport : diagnostics/<archive>_application_report.md
+Drive : en attente de sync.
 ```
 
-Ne produire aucun autre commentaire.
+Application échouée, même après écriture partielle (exemple de cinq lignes) :
+
+```text
+<archive>.zip — ÉCHEC
+Étape : <étape réelle>.
+Cause : <erreur principale, brève et expurgée>.
+Rapport : diagnostics/<archive>_application_report.md
+Drive : en attente de sync.
+```
+
+Si le rapport n'a pas pu être créé, remplacer la ligne Rapport par `Rapport : indisponible (<cause>)` ; ne jamais inventer un chemin ou une validation. Si les tests n'ont pas été exécutés, ne jamais afficher `Tests : OK`.
+
+Après la **commande utilisateur distincte `sync`**, ne pas réafficher les détails du dépôt ; seulement le résultat réel (exemple de trois lignes, limite maximale inchangée) :
+
+```text
+SYNC — OK
+Fichiers indexés : <nombre confirmé> ; diagnostics inclus si vérifiés.
+Index distant/local : identique (uniquement après comparaison effective).
+```
+
+Si la synchronisation échoue, afficher `SYNC — ÉCHEC`, l'étape bloquante et une cause concise expurgée ; ne jamais annoncer l'identité des index sans comparaison. Les demandes explicites de détails de l'utilisateur, les autorisations indispensables et les alertes de sécurité restent prioritaires sur la limite de longueur. Le mode de publication manuelle défini en section 24 bis demeure inchangé.
+
+---
+
+## 27. Réponse courte en cas de refus avant application
+
+En cas de contradiction préflight, ne pas appliquer le patch ; créer le rapport local si possible puis répondre en **4 à 6 lignes maximum** :
+
+```text
+<archive>.zip — NON APPLIQUÉ
+Étape : contrôle préalable.
+Cause : <contradiction précise, brève et expurgée>.
+Rapport : diagnostics/<archive>_application_report.md
+Drive : en attente de sync.
+```
+
+Si l'écriture du rapport échoue, le signaler explicitement. Pas de détails supplémentaires dans le chat, sauf instruction utilisateur ou exigence de sécurité. Ne jamais déclencher de publication automatique.
 
 ---
 
@@ -859,34 +875,31 @@ Application normale :
 
 ```text
 identifier dépôt et ZIP
--> lister ZIP
--> extraire sous /tmp
--> lire manifeste/suppressions/déplacements
--> contrôler chemins, secrets et invariants sensibles
--> capturer état initial
--> supprimer
--> déplacer
--> copier
+-> lister ZIP / contrôler contenu, manifestes et base locale
+-> appliquer exactement le correctif
 -> vérifier conformité
--> valider localement
--> valider live seulement si demandé
--> rapporter
+-> valider localement (sans live non demandé)
+-> rédiger le rapport local expurgé sous diagnostics/
+-> message final : EN_ATTENTE_SYNC_UTILISATEUR
+-> utilisateur lance séparément sync (publication dépôt + diagnostics)
 ```
 
-Blocage :
+Blocage avant application :
 
 ```text
 contradiction détectée
--> aucune modification
--> rapport unique et précis
+-> aucune modification projet
+-> rapport local diagnostique expurgé
+-> message final, sans publication
+-> utilisateur lance séparément sync pour partager le rapport
 ```
 
 Échec après application :
 
 ```text
-stop validation
--> aucune correction opportuniste
--> sortie redacted
--> qualification factuelle
--> rapport final
+arrêt des validations, aucune correction opportuniste
+-> sortie utile expurgée et qualification
+-> rapport local diagnostique
+-> message final, sans publication
+-> utilisateur lance séparément sync pour partager l’échec
 ```
