@@ -181,6 +181,8 @@ int main(int argc, char** argv) {
     }
 
     QGuiApplication app(argc, argv);
+    QGuiApplication::setApplicationName(QStringLiteral("accloud"));
+    QGuiApplication::setApplicationVersion(QStringLiteral(ACCLOUD_APP_VERSION));
 #if defined(ACCLOUD_EXPERIMENTAL_VIEWER)
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
 #endif

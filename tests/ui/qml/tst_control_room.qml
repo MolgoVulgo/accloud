@@ -212,7 +212,8 @@ TestCase {
 
     function test_main_window_has_control_room_layout() {
         var window = createQmlObject("../../../ui/qml/MainWindow.qml")
-        compare(window.title, "Anycubic Cloud Control Room")
+        compare(window.title, "accloud")
+        compare(findObjectByName(window, "controlRoomTitle").text, "accloud")
 
         var tabs = findObjectByName(window, "controlRoomTabs")
         verify(tabs !== null)
@@ -270,12 +271,31 @@ TestCase {
         compare(findObjectByName(window, "menuSettingsRender3dWorkers").enabled, true)
         compare(findObjectByName(window, "menuSettingsRender3dPalette").enabled, true)
 
-        verify(findObjectByName(window, "menuSessionDetails") !== null)
+        verify(findObjectByName(window, "menuSessionDetails") === null)
         verify(findObjectByName(window, "menuSessionImportHar") !== null)
-        verify(findObjectByName(window, "menuSessionLocation") !== null)
+        verify(findObjectByName(window, "menuSessionLocation") === null)
+        verify(findObjectByName(window, "menuHelpGit") === null)
+        verify(findObjectByName(window, "sessionDetailsDialog") === null)
+        verify(findObjectByName(window, "sessionPathDialog") === null)
+        verify(findObjectByName(window, "gitDialog") === null)
         verify(findObjectByName(window, "menuSettingsSession") === null)
         verify(findObjectByName(window, "menuSettingsMqttAuthMode") === null)
 
+        window.close()
+        window.destroy()
+    }
+
+    function test_about_identity_and_source_link() {
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        var name = findObjectByName(window, "aboutAppName")
+        var version = findObjectByName(window, "aboutVersionText")
+        var link = findObjectByName(window, "aboutGithubLink")
+        verify(name !== null)
+        compare(name.text, "accloud")
+        verify(version !== null)
+        verify(String(version.text).indexOf("Version:") === 0)
+        verify(link !== null)
+        verify(String(link.text).indexOf("https://github.com/MolgoVulgo/anycubic-cloud-manager") !== -1)
         window.close()
         window.destroy()
     }
@@ -804,9 +824,9 @@ TestCase {
         compare(basicFunctionsCard.visible, true)
         compare(printingFunctionsCard.visible, false)
         compare(String(findObjectByName(panel, "printerFunctionFeedingButtonBasic").text), "Feeding")
-        compare(String(findObjectByName(panel, "printerFunctionB1ButtonBasic").text), "B1")
-        compare(String(findObjectByName(panel, "printerFunctionB2ButtonBasic").text), "B2")
-        compare(String(findObjectByName(panel, "printerFunctionB3ButtonBasic").text), "B3")
+        compare(findObjectByName(panel, "printerFunctionB1ButtonBasic"), null)
+        compare(findObjectByName(panel, "printerFunctionB2ButtonBasic"), null)
+        compare(findObjectByName(panel, "printerFunctionB3ButtonBasic"), null)
 
         var feedingDialog = findObjectByName(panel, "printerFeedingDialog")
         verify(feedingDialog !== null)
@@ -829,15 +849,16 @@ TestCase {
             "name": "Anycubic Photon Mono M7 Pro",
             "state": "PRINTING",
             "reason": "printing",
-            "available": 1
+            "available": 1,
+            "progress": 42
         }
         wait(0)
         compare(basicFunctionsCard.visible, false)
         compare(printingFunctionsCard.visible, true)
         compare(String(findObjectByName(panel, "printerFunctionFeedingButton").text), "Feeding")
-        compare(String(findObjectByName(panel, "printerFunctionB1Button").text), "B1")
-        compare(String(findObjectByName(panel, "printerFunctionB2Button").text), "B2")
-        compare(String(findObjectByName(panel, "printerFunctionB3Button").text), "B3")
+        compare(findObjectByName(panel, "printerFunctionB1Button"), null)
+        compare(findObjectByName(panel, "printerFunctionB2Button"), null)
+        compare(findObjectByName(panel, "printerFunctionB3Button"), null)
 
         panel.selectedPrinter = {
             "id": "p1",
@@ -1178,6 +1199,59 @@ TestCase {
         var closeButton = findObjectByName(dialog, "harImportCloseButton")
         verify(harField !== null)
         verify(closeButton !== null)
+        dialog.destroy()
+    }
+
+    function test_session_dialog_skip_does_not_commit_or_persist() {
+        var host = Qt.createQmlObject('import QtQuick 2.15; import QtQuick.Controls 2.15; ' +
+                                      'ApplicationWindow { width: 1000; height: 760; visible: true }',
+                                      this, "harSkipDialogHost")
+        tryCompare(host, "visible", true)
+        var dialog = createQmlObject("../../../ui/qml/dialogs/SessionSettingsDialog.qml",
+                                     {}, host.contentItem)
+        var discarded = 0
+        var committed = 0
+        var skipped = 0
+        dialog.importBridge = {
+            discardPendingSession: function() { discarded += 1 },
+            commitPendingSession: function() { committed += 1; return {ok: true, connectionOk: true} }
+        }
+        dialog.importSkipped.connect(function() { skipped += 1 })
+        dialog.mandatoryMode = true
+        dialog.open()
+        tryCompare(dialog, "visible", true)
+        var skip = findObjectByName(dialog, "harImportSkipButton")
+        verify(skip !== null)
+        tryCompare(skip, "visible", true)
+        compare(skip.enabled, true)
+        // Opening the dialog discards any previously pending import.
+        var discardedBeforeSkip = discarded
+        skip.clicked()
+        compare(skipped, 1)
+        compare(discarded, discardedBeforeSkip + 1)
+        compare(committed, 0)
+        compare(dialog.mandatoryMode, false)
+        tryCompare(dialog, "visible", false)
+        dialog.destroy()
+        host.close()
+        host.destroy()
+    }
+
+    function test_session_dialog_unverified_cloud_is_not_marked_active() {
+        var dialog = createQmlObject("../../../ui/qml/dialogs/SessionSettingsDialog.qml")
+        var completed = 0
+        dialog.importCompleted.connect(function() { completed += 1 })
+        dialog.importBridge = {
+            analyzeHar: function() { return {ok: true, entriesVisited: 1, entriesAccepted: 1, tokenKeys: []} },
+            commitPendingSession: function() { return {ok: true, message: "saved", connectionOk: false, connectionMessage: "offline"} },
+            discardPendingSession: function() {}
+        }
+        dialog.mandatoryMode = true
+        dialog.runAnalyzeForPath("/tmp/fixture.har")
+        dialog.requestClose()
+        compare(completed, 0)
+        compare(dialog.pendingValid, false)
+        verify(dialog.statusMessage.indexOf("not verified") !== -1)
         dialog.destroy()
     }
 
@@ -1887,7 +1961,7 @@ TestCase {
             fileId: "f-route-1",
             fileName: "route_file.pwmb",
             compatibilityResult: { ok: true, printers: [ { id: "p2", available: 1, reason: "" } ] },
-            compatiblePrinters: [ { id: "p2", name: "Printer Two", model: "Mono M5s", state: "READY", machineType: "" } ],
+            compatiblePrinters: [ { id: "p2", name: "Printer Two", model: "Cloud-compatible unverified model", state: "READY", machineType: "" } ],
             selectedPrinterId: "p2",
             allowed: true,
             blockReason: "",
@@ -1895,9 +1969,14 @@ TestCase {
             bestEffortWarning: false
         })
 
+        // A real window is required for the modal overlay and effective Item.visible state.
+        var host = Qt.createQmlObject('import QtQuick 2.15; import QtQuick.Controls 2.15; ' +
+                                      'ApplicationWindow { width: 1280; height: 800; visible: true }',
+                                      this, "remotePrintCompatibilityHost")
+        tryCompare(host, "visible", true)
         var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml",
                                    {"width": 1280, "height": 800,
-                                    "deferStartupInitialization": true})
+                                    "deferStartupInitialization": true}, host.contentItem)
         page.selectedPrinterId = "p1"
         page.openRemotePrintFromFile("f-route-1", "route_file.pwmb", {
                                          fileId: "f-route-1",
@@ -1911,6 +1990,14 @@ TestCase {
         var printerCombo = findObjectByName(dialog, "remotePrinterCombo")
         verify(dialog !== null)
         verify(printerCombo !== null)
+        tryCompare(dialog, "visible", true)
+        var cleanupOption = findObjectByName(dialog, "directPrintDeleteAfterSuccess")
+        var optionsCard = findObjectByName(dialog, "remotePrintOptionsCard")
+        verify(cleanupOption !== null)
+        verify(optionsCard !== null)
+        compare(optionsCard.visible, false) // cloud-file print has no configurable options
+        compare(dialog.optionLiftCompensation, undefined)
+        compare(dialog.optionAutoResinCheck, undefined)
         compare(String(dialog.selectedPrintTime), "01h 10m")
         compare(String(dialog.selectedResinUsage), "24 ml")
         compare(String(printerCombo.displayText), "Checking printer compatibility...")
@@ -1924,6 +2011,7 @@ TestCase {
         tryCompare(compatiblePrinterModel, "count", 1, 1000)
         compare(String(compatiblePrinterModel.get(0).id), "p2")
         compare(String(compatiblePrinterModel.get(0).name), "Printer Two")
+        compare(String(compatiblePrinterModel.get(0).model), "Cloud-compatible unverified model")
         compare(printerProjectsCalls, 0)
         compare(String(page.selectedCloudFileId), "f-route-1")
         var selectedFile = page.selectedCloudFileData()
@@ -1931,8 +2019,14 @@ TestCase {
         compare(String(selectedFile.printTime), "01h 10m")
         compare(String(selectedFile.resinUsage), "24 ml")
         verify(String(page.statusMsg).indexOf("Remote print prepared for") === 0)
+        page.remotePrintMode = "direct"
+        tryCompare(dialog, "directPrintMode", true, 1000)
+        tryCompare(optionsCard, "visible", true, 1000)
+        tryCompare(cleanupOption, "visible", true, 1000)
 
         page.destroy()
+        host.close()
+        host.destroy()
     }
 
     function test_printer_page_remote_print_compatibility_uses_workflow_bridge() {
@@ -1984,6 +2078,63 @@ TestCase {
         compare(String(page.remotePrinterId), "p2")
         compare(String(page.selectedPrinterId), "p2")
         verify(String(page.statusMsg).indexOf("Remote print prepared for") === 0)
+        page.destroy()
+    }
+
+    function test_printer_order_http_acceptance_is_not_mqtt_printing() {
+        var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml",
+                                   {"width": 1280, "height": 800,
+                                    "pageActive": false,
+                                    "deferStartupInitialization": true})
+        var ready = { id: "p1", name: "M7 Pro", state: "READY", available: 1,
+                      progress: -1, currentLayer: -1, totalLayers: -1 }
+        page.replacePrintersModel([ready], false)
+        compare(String(page.selectedPrinterId), "p1")
+        page.markRemotePrintAccepted("p1", {
+                                         fileId: "cloud-pending-ui",
+                                         fileName: "pending-ui.pwmb",
+                                         deleteAfterPrint: false
+                                     }, "task-pending-ui")
+        compare(Number(page.pendingRemotePrintForPrinter("p1").printStatus), -1)
+        var snapshot = page.selectedPrinterLiveData()
+        compare(String(snapshot.state), "READY")
+        compare(snapshot.awaitingPrinterTelemetry, true)
+        compare(Number(page.liveProjectData.printStatus), -1)
+
+        var panel = createQmlObject("../../../ui/qml/pages/PrinterDetailPanel.qml",
+                                    {"width": 1000, "height": 700,
+                                     "selectedPrinter": snapshot,
+                                     "selectedLiveJobData": page.liveProjectData})
+        compare(String(panel.printerSemanticStatus()), "ORDER_PENDING")
+        compare(String(panel.printerDisplayStatus()), "Awaiting printer telemetry")
+        compare(String(panel.printerInfoMode()), "basic")
+
+        // An offline/error report must not be masked by the accepted HTTP order.
+        panel.selectedPrinter = { state: "OFFLINE", available: 0,
+                                  awaitingPrinterTelemetry: true }
+        compare(String(panel.printerSemanticStatus()), "OFFLINE")
+        panel.selectedPrinter = { state: "ERROR", available: 1,
+                                  awaitingPrinterTelemetry: true }
+        compare(String(panel.printerSemanticStatus()), "ERROR")
+
+        // A real active cloud project is evidence even if the printer list lags.
+        page.liveProjectData = { taskId: "task-pending-ui", printerId: "p1",
+                                 printStatus: 1, currentFile: "pending-ui.pwmb" }
+        snapshot = page.selectedPrinterLiveData()
+        compare(String(snapshot.state), "PRINTING")
+        verify(snapshot.awaitingPrinterTelemetry !== true)
+        // Actual printer telemetry confirms the same state without a placeholder.
+        page.replacePrintersModel([{ id: "p1", name: "M7 Pro", state: "PRINTING",
+                                     available: 1, progress: 20 }], false)
+        snapshot = page.selectedPrinterLiveData()
+        compare(String(snapshot.state), "PRINTING")
+        verify(snapshot.awaitingPrinterTelemetry !== true)
+        panel.selectedPrinter = snapshot
+        panel.selectedLiveJobData = page.liveProjectData
+        compare(String(panel.printerSemanticStatus()), "PRINTING")
+        compare(String(panel.printerInfoMode()), "printing")
+
+        panel.destroy()
         page.destroy()
     }
 
@@ -2299,7 +2450,10 @@ TestCase {
         compare(tabs.currentIndex, 1)
         compare(String(printerPage.selectedPrinterId), "route-p1")
         verify(printerPage.selectedPrinterLiveSnapshot !== null)
-        compare(String(printerPage.selectedPrinterLiveSnapshot.state), "PRINTING")
+        // HTTP acceptance is not proof that the printer has started the job.
+        compare(String(printerPage.selectedPrinterLiveSnapshot.state), "READY")
+        compare(printerPage.selectedPrinterLiveSnapshot.awaitingPrinterTelemetry, true)
+        compare(Number(printerPage.liveProjectData.printStatus), -1)
         verify(String(printerPage.selectedPrinterLiveSnapshot.currentFile).indexOf("route_file.pwmb") !== -1)
 
         window.close()

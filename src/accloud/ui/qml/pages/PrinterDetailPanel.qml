@@ -61,6 +61,11 @@ Rectangle {
                 return "OFFLINE"
 
             var printerState = String(root.selectedPrinter.state || "").trim()
+            var normalizedState = printerState.toUpperCase()
+            if (root.selectedPrinter.awaitingPrinterTelemetry === true
+                    && (normalizedState === "READY" || normalizedState === "FREE"
+                        || normalizedState === "ONLINE" || normalizedState === ""))
+                return "ORDER_PENDING"
             if (printerState.length > 0)
                 return printerState
         }
@@ -70,6 +75,8 @@ Rectangle {
     function printerDisplayStatus() {
         var semanticStatus = root.printerSemanticStatus()
         var normalizedStatus = String(semanticStatus || "").toUpperCase()
+        if (normalizedStatus === "ORDER_PENDING")
+            return qsTr("Awaiting printer telemetry")
         var localizedStatus = normalizedStatus === "OFFLINE"
                 || normalizedStatus === "PRINTING"
                 || normalizedStatus === "ERROR"
@@ -1480,11 +1487,9 @@ Rectangle {
                                     elide: Text.ElideRight
                                 }
 
-                                GridLayout {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    columns: 4
-                                    columnSpacing: 8
-                                    rowSpacing: 8
+                                    spacing: 8
 
                                     AppButton {
                                         objectName: "printerFunctionFeedingButtonBasic"
@@ -1492,27 +1497,6 @@ Rectangle {
                                         text: qsTr("Feeding")
                                         compact: true
                                         onClicked: feedingDialog.open()
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB1ButtonBasic"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B1")
-                                        compact: true
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB2ButtonBasic"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B2")
-                                        compact: true
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB3ButtonBasic"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B3")
-                                        compact: true
                                     }
                                 }
                             }
@@ -1551,11 +1535,9 @@ Rectangle {
                                     elide: Text.ElideRight
                                 }
 
-                                GridLayout {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    columns: 4
-                                    columnSpacing: 8
-                                    rowSpacing: 8
+                                    spacing: 8
 
                                     AppButton {
                                         objectName: "printerFunctionFeedingButton"
@@ -1563,27 +1545,6 @@ Rectangle {
                                         text: qsTr("Feeding")
                                         compact: true
                                         onClicked: feedingDialog.open()
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB1Button"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B1")
-                                        compact: true
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB2Button"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B2")
-                                        compact: true
-                                    }
-
-                                    AppButton {
-                                        objectName: "printerFunctionB3Button"
-                                        Layout.fillWidth: true
-                                        text: qsTr("B3")
-                                        compact: true
                                     }
                                 }
                             }

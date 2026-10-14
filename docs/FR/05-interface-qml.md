@@ -6,7 +6,7 @@ QML porte l'affichage, la navigation et les interactions utilisateur. Les bridge
 
 ## Vues actives
 
-Le shell courant contient connexion/session cloud, fichiers cloud, imprimantes, état MQTT et paramètres. Les builds debug peuvent ajouter les pages de logs et de diagnostic. Le **viewer 3D PWSZ** est une fonctionnalité desktop standard, y compris en production : chaque ligne PWSZ compatible expose une action **3D** qui télécharge le fichier vers un chemin local temporaire puis ouvre une modal dédiée ; aucun cinquième onglet principal n'est ajouté. La coloration sémantique des supports n'est pas présente dans cette branche et reste une fonctionnalité expérimentale hors du build de production.
+Le shell courant contient import HAR/session cloud, fichiers cloud, imprimantes, état MQTT et paramètres. Les builds debug peuvent ajouter les pages de logs et de diagnostic. Le **viewer 3D PWSZ** est une fonctionnalité desktop standard, y compris en production : chaque ligne PWSZ compatible expose une action **3D** qui télécharge le fichier vers un chemin local temporaire puis ouvre une modal dédiée ; aucun cinquième onglet principal n'est ajouté. La coloration sémantique des supports n'est pas présente dans cette branche et reste une fonctionnalité expérimentale hors du build de production.
 
 Le fichier principal chargé par le runtime desktop est :
 
@@ -34,16 +34,30 @@ Paramètres
    └─ Couleurs 3D
 
 Session
-├─ Détails
-├─ Importer un HAR…
-└─ Emplacement de session…
+└─ Importer un HAR…
 
 Aide
-├─ À propos
-└─ git
+└─ À propos (identité accloud, version, lien GitHub et indépendance)
 ```
 
+
+### Session au démarrage (V1 candidate)
+
+La session est conservée à son emplacement standard (`~/.local/share/accloud/session.json` sous Linux). Aucun réglage de chemin ni fenêtre de détails de session ne sont exposés dans l'interface. Au démarrage, une session reconnue et validée par le cloud ouvre normalement l'application ; si la session manque ou que sa connexion échoue, le dialogue HAR s'affiche. Le bouton **Passer** ferme ce dialogue uniquement pour le démarrage en cours, sans mémoriser cette décision ni simuler une connexion valide. Si le cloud refuse la session au démarrage suivant, le dialogue est proposé de nouveau. L'import HAR manuel reste disponible dans **Session > Importer un HAR**.
+
+Une sauvegarde HAR réussie ne suffit pas à déclarer la session active : le cloud doit confirmer la connexion. Une panne réseau n'efface pas la session persistée. La fenêtre **À propos** affiche la version candidate depuis l'application, le modèle de validation principal Photon Mono M7 Pro, le lien GitHub et la non-affiliation avec Anycubic.
+
 Le mode MQTT Slicer n'est pas exposé comme réglage : il constitue un contrat de compatibilité runtime figé, et non une préférence sélectionnable par l'utilisateur.
+
+### Commandes et compatibilité des imprimantes — V1
+
+La carte **Fonctions** ne conserve que **Feeding** (remplissage/vidage), dans les affichages basique et en impression. Les boutons sans action **B1**, **B2** et **B3** sont supprimés. La confirmation d'impression distante ne présente plus **Lift compensation** ni **Auto resin check**, qui n'étaient pas transmis à l'ordre d'impression. L'option existante de nettoyage après réussite reste visible uniquement en **impression directe** ; l'impression depuis un fichier cloud n'affiche pas un panneau Options vide. Les commandes de résine MQTT, le protocole des ordres et le nettoyage existants ne sont pas modifiés par ce retrait d'interface.
+
+La **Photon Mono M7 Pro** est l'imprimante de référence utilisée pour le développement et la validation physique. D'autres imprimantes **effectivement reconnues et accessibles via le cloud officiel Anycubic** restent sélectionnables lorsque les contrôles de compatibilité cloud existants les autorisent, **sans garantie** de support ; une connexion Wi-Fi seule ne prouve ni l'accès cloud ni la disponibilité des commandes. Une capacité matérielle annoncée est distincte d'une commande distante vérifiée pour un firmware et une réponse du service donnés. L'affichage du parcours **Feeding** ne prouve pas que le remplissage/vidage est pris en charge sur toutes les imprimantes cloud. Aucune liste blanche de modèles ni nouvelle promesse de compatibilité backend n'est introduite.
+
+### Acceptation HTTP et confirmation imprimante — V1 (lot 05)
+
+Une réponse HTTP positive signifie uniquement que **le cloud a accepté l'ordre d'impression**. Tant qu'aucun état réel de l'imprimante ou du projet ne confirme l'activité, l'imprimante conserve son état observé `READY`/`FREE`/`ONLINE` et son en-tête indique **En attente de la télémétrie de l’imprimante**, avec un ton neutre. Le projet temporaire utilise `printStatus = -1` : il ne doit pas déclencher l'affichage d'impression en cours ni inventer une progression MQTT. Les états `OFFLINE` et `ERROR` restent prioritaires. Dès qu'un projet cloud avec statut réel `1` ou une télémétrie imprimante `PRINTING` est constaté, l'affichage normal de l'impression reprend. Cette correction ne change que la projection UI ; les ordres HTTP, la corrélation MQTT, le nettoyage et la préparation de l'impression directe demeurent inchangés.
 
 ## Répartition des responsabilités
 
@@ -89,10 +103,15 @@ La valeur persistée `render3d.palettePreset` sélectionne l'un des cinq couples
 
 Dans la modal 3D, la plage de couches est présentée sous forme d'un double curseur vertical à droite du viewport, borné visuellement par la couche maximale et la couche `1`. Le survol d'une poignée affiche son numéro dans un tooltip. La molette sur ce contrôle ne modifie que la borne haute ; la borne basse reste déplaçable uniquement à la souris. Aucun champ numérique redondant n'est affiché.
 
+La caméra du viewer conserve une distance de zoom finie même avec des événements extrêmes de molette ou de pavé tactile, sans modifier la réponse exponentielle des gestes usuels. Les plages de couches hors du document PWSZ ou inversées sont refusées sans remplacer la dernière sélection valide. Ces limites sont couvertes par `accloud_viewer_controls` avec des données synthétiques.
+
 La persistance des impressions directes, la réconciliation avec les projets et les transitions d'état de nettoyage sont désormais portées par `PrintWorkflowBridge`, adossé à `PendingDirectPrintStore` et au `DirectPrintLifecycleUseCase` typé. QML se limite à enregistrer une impression directe acceptée et à transmettre au workflow les snapshots de projets rafraîchis ; il ne conserve plus de map de nettoyage direct, ne corrèle plus les projets, ne déclenche plus lui-même la suppression locale imprimante, ne corrèle plus la suppression cloud et n'interprète plus les transitions de nettoyage. `CloudBridge` n'expose plus les méthodes de persistance des impressions directes. La corrélation asynchrone des ordres imprimante utilise un contexte `QVariantMap` structuré (`kind` et champs typés) au lieu d'identifiants concaténés analysés par préfixes ou `split(":")`. Les confirmations MQTT `deleteLocal` sont raccordées directement de `MqttBridge` vers `PrintWorkflowBridge` : le bridge porte la corrélation des `msgId` en attente ainsi que les états de suppression locale/cloud en vol. Les intentions de transport pour les suppressions directe locale/cloud sont raccordées de `PrintWorkflowBridge` vers `CloudBridge` dans le bootstrap desktop ; QML ne reçoit plus que des notifications sémantiques de nettoyage et de libération du suivi. Les impressions standards lancées depuis la liste cloud utilisent la même frontière de workflow pour le nettoyage post-print : QML signale seulement la fin de la tâche imprimante, `PrintWorkflowBridge` demande d'abord la suppression du fichier local de l'imprimante, ne demande la suppression cloud qu'après succès de cet ordre local, puis émet des notifications sémantiques de succès ou d'échec. La map QML restante d'impression distante en attente sert uniquement de placeholder visuel temporaire après acceptation de l'ordre, jusqu'à l'arrivée de la télémétrie projet réelle.
 
 
 La complétion des aperçus PWSZ est contrôlée par deux réglages persistés : la complétion elle-même est activée par défaut, et la confirmation avant remplacement permanent du fichier local est activée par défaut. La modal explique que `preview_1.png` est copié vers `preview_2.png`, que la version préparée est envoyée, puis que le fichier local n’est remplacé qu’après succès cloud. « Ne plus demander » désactive uniquement la confirmation ; les deux réglages restent accessibles depuis **Paramètres > Fichiers / Upload**.
+
+
+Le chantier d’impression directe différée possède une politique de sécurité C++ pure (`DirectPrintPreparationPolicy.h`) avec ses tests dédiés. Elle définit la vérification indépendante de la disponibilité cloud, le recontrôle de l’imprimante, la réservation durable avant l’envoi, la reprise et le traitement conservateur des réponses HTTP incertaines. **Cette politique n’est pas encore raccordée au workflow d’upload/impression actif** ; le comportement actuel de l’impression directe reste inchangé à cette étape.
 
 ## Sélection multiple des fichiers cloud
 

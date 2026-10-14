@@ -24,8 +24,6 @@ AppDialogFrame {
     property string selectedResinUsage: "-"
     property bool optionDeleteAfterPrint: false
     property bool directPrintMode: false
-    property bool optionLiftCompensation: false
-    property bool optionAutoResinCheck: true
     property bool remotePrintAllowed: true
     property string remotePrintBlockReason: ""
     property bool remotePrintPreparing: false
@@ -34,8 +32,6 @@ AppDialogFrame {
 
     signal remotePrinterChanged(string printerId)
     signal optionDeleteAfterPrintToggled(bool checked)
-    signal optionLiftCompensationToggled(bool checked)
-    signal optionAutoResinCheckToggled(bool checked)
     signal refreshGuardRequested()
     signal closeRequested()
     signal startRequested()
@@ -298,14 +294,18 @@ AppDialogFrame {
     }
 
     SectionHeader {
+        objectName: "remotePrintOptionsHeader"
+        visible: root.directPrintMode
         Layout.fillWidth: true
         title: qsTr("Options")
         subtitle: qsTr("Fast options before start")
     }
 
     Rectangle {
+        objectName: "remotePrintOptionsCard"
+        visible: root.directPrintMode
         Layout.fillWidth: true
-        Layout.preferredHeight: optionsLayout.implicitHeight + 20
+        Layout.preferredHeight: visible ? optionsLayout.implicitHeight + 20 : 0
         radius: Theme.radiusControl
         color: Theme.bgSurface
         border.width: Theme.borderWidth
@@ -323,18 +323,6 @@ AppDialogFrame {
                 text: qsTr("Delete printer-local and cloud files after a successful print")
                 checked: root.optionDeleteAfterPrint
                 onToggled: root.optionDeleteAfterPrintToggled(checked)
-            }
-
-            AppCheckBox {
-                text: qsTr("Lift compensation")
-                checked: root.optionLiftCompensation
-                onToggled: root.optionLiftCompensationToggled(checked)
-            }
-
-            AppCheckBox {
-                text: qsTr("Auto resin check")
-                checked: root.optionAutoResinCheck
-                onToggled: root.optionAutoResinCheckToggled(checked)
             }
         }
     }

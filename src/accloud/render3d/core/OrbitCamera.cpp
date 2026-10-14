@@ -8,6 +8,8 @@ namespace {
 constexpr double kHalfPi = 1.5707963267948966;
 constexpr double kPitchMargin = 0.017453292519943295;
 constexpr double kMinimumDistance = 0.001;
+constexpr double kMaximumDistance = 1.0e9;
+constexpr double kMaximumWheelSteps = 100.0;
 constexpr double kPi = 3.14159265358979323846;
 }
 
@@ -20,7 +22,14 @@ void OrbitCamera::orbit(double deltaYawRadians, double deltaPitchRadians) noexce
 }
 
 void OrbitCamera::zoom(double wheelSteps) noexcept {
-  distance_ = std::max(kMinimumDistance, distance_ * std::exp(-wheelSteps * 0.1));
+  if (!std::isfinite(wheelSteps)) {
+    return;
+  }
+  // Keep extreme wheel/touchpad deltas finite and reversible. Normal steps
+  // preserve their existing exponential zoom behaviour.
+  const double boundedSteps = std::clamp(wheelSteps, -kMaximumWheelSteps, kMaximumWheelSteps);
+  distance_ = std::clamp(distance_ * std::exp(-boundedSteps * 0.1),
+                         kMinimumDistance, kMaximumDistance);
 }
 
 void OrbitCamera::pan(double rightMm, double upMm) noexcept {

@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(accloud VERSION 0.1.0 LANGUAGES CXX)
+project(accloud VERSION 1.0.0 LANGUAGES CXX)
+
+# Candidate suffix is removed only after all release validations succeed.
+set(ACCLOUD_VERSION_PRERELEASE "rc.1" CACHE STRING "accloud pre-release suffix (empty for final release)")
+set(ACCLOUD_DISPLAY_VERSION "${PROJECT_VERSION}")
+if(NOT ACCLOUD_VERSION_PRERELEASE STREQUAL "")
+  string(APPEND ACCLOUD_DISPLAY_VERSION "-${ACCLOUD_VERSION_PRERELEASE}")
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -231,6 +238,7 @@ add_executable(accloud_cli
 )
 set_source_files_properties(${ACCLOUD_SRC_ROOT}/app/main.cpp PROPERTIES SKIP_AUTOMOC ON)
 target_link_libraries(accloud_cli PRIVATE accloud_domain accloud_infra)
+target_compile_definitions(accloud_cli PRIVATE ACCLOUD_APP_VERSION=\"${ACCLOUD_DISPLAY_VERSION}\")
 
 find_package(OpenSSL QUIET)
 if(OpenSSL_FOUND)
@@ -559,8 +567,7 @@ if(ACCLOUD_ENABLE_EXPERIMENTAL_VIEWER)
     target_link_libraries(accloud_render3d_shader_tests PRIVATE Qt6::Gui Qt6::OpenGL)
     add_test(NAME accloud_render3d_shader_compile COMMAND accloud_render3d_shader_tests)
     set_tests_properties(accloud_render3d_shader_compile PROPERTIES
-        LABELS "qt;opengl;experimental;viewer"
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+        LABELS "qt;opengl;experimental;viewer")
   endif()
 endif()
 
@@ -583,6 +590,14 @@ add_executable(accloud_direct_print_lifecycle_tests
 target_link_libraries(accloud_direct_print_lifecycle_tests PRIVATE accloud_domain accloud_infra)
 add_test(NAME accloud_direct_print_lifecycle COMMAND accloud_direct_print_lifecycle_tests)
 set_tests_properties(accloud_direct_print_lifecycle PROPERTIES LABELS "core;printing")
+
+# Lot 03: pure, non-live safety policy for deferred direct-print preparation.
+add_executable(accloud_direct_print_preparation_tests
+    ${ACCLOUD_TESTS_ROOT}/printing/test_direct_print_preparation.cpp
+)
+target_include_directories(accloud_direct_print_preparation_tests PRIVATE ${ACCLOUD_SRC_ROOT})
+add_test(NAME accloud_direct_print_preparation COMMAND accloud_direct_print_preparation_tests)
+set_tests_properties(accloud_direct_print_preparation PROPERTIES LABELS "core;printing")
 
 add_executable(accloud_cloud_files_delete_tests
     ${ACCLOUD_TESTS_ROOT}/cloud/test_delete_cloud_files.cpp

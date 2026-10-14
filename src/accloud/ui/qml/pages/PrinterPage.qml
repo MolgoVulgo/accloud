@@ -51,8 +51,6 @@ Item {
     property bool directPrintCompletePreview: false
     property bool directPrintDeleteLocalOnFailureSnapshot: false
     property string pendingDirectUploadContext: ""
-    property bool optionLiftCompensation: false
-    property bool optionAutoResinCheck: true
     property bool remotePrintAllowed: true
     property string remotePrintBlockReason: ""
     property bool remotePrintPreparing: false
@@ -551,8 +549,14 @@ Item {
         var selectedId = String(selected.id || selectedPrinterId || "")
         var pendingPrint = pendingRemotePrintForPrinter(selectedId)
         var selectedState = String(selected.state || "").toUpperCase()
-        if (pendingPrint && selectedState !== "PRINTING") {
+        var activeCloudProject = liveProjectData && Number(liveProjectData.printStatus) === 1
+        if (activeCloudProject && selectedState !== "OFFLINE" && selectedState !== "ERROR") {
+            // A real active project is evidence; an HTTP acknowledgement alone is not.
             merged.state = "PRINTING"
+        } else if (pendingPrint && !activeCloudProject && selectedState !== "PRINTING"
+                && selectedState !== "OFFLINE" && selectedState !== "ERROR") {
+            // HTTP acceptance is not a confirmed printer or MQTT print state.
+            merged.awaitingPrinterTelemetry = true
             merged.reason = qsTr("Print order accepted; waiting for printer telemetry")
         }
 
@@ -690,7 +694,8 @@ Item {
             "gcodeName": fileName.length > 0 ? fileName : fileId,
             "currentFile": fileName.length > 0 ? fileName : fileId,
             "fileId": fileId,
-            "printStatus": 1,
+            // The cloud accepted an order, but no printer activity has been observed yet.
+            "printStatus": -1,
             "progress": -1,
             "currentLayer": -1,
             "totalLayers": -1,
@@ -2149,8 +2154,8 @@ Item {
         if (r.ok === true) {
             var taskId = String(r.taskId || "")
             var successMessage = taskId.length > 0
-                    ? (qsTr("Print order sent (task_id=%1)").arg(taskId))
-                    : qsTr("Print order sent.")
+                    ? qsTr("Print order accepted (task_id=%1); waiting for printer telemetry.").arg(taskId)
+                    : qsTr("Print order accepted; waiting for printer telemetry.")
             var trackedFileData = fileData ? fileData : ({})
             trackedFileData.deleteAfterPrint = deleteAfterPrint === true
             trackedFileData.printMsgId = String(r.msgId || "")
@@ -2593,8 +2598,6 @@ Item {
         remotePrintPreparing: root.remotePrintPreparing
         remotePrintPrepareMessage: root.remotePrintPrepareMessage
         optionDeleteAfterPrint: root.optionDeleteAfterPrint
-        optionLiftCompensation: root.optionLiftCompensation
-        optionAutoResinCheck: root.optionAutoResinCheck
         remotePrintAllowed: root.remotePrintAllowed
         remotePrintBlockReason: root.remotePrintBlockReason
         translateLocalizedTextProvider: root.translateLocalizedText
@@ -2603,12 +2606,6 @@ Item {
         }
         onOptionDeleteAfterPrintToggled: function(checked) {
             root.optionDeleteAfterPrint = checked
-        }
-        onOptionLiftCompensationToggled: function(checked) {
-            root.optionLiftCompensation = checked
-        }
-        onOptionAutoResinCheckToggled: function(checked) {
-            root.optionAutoResinCheck = checked
         }
         onRefreshGuardRequested: root.refreshRemotePrintGuard()
         onCloseRequested: {

@@ -91,15 +91,22 @@ Règles :
 - Git reste indépendant du mécanisme Drive.
 ```
 
-Si le patch doit être récupéré depuis Drive, charger `sync-drive.conf`, identifier exactement le nom demandé puis utiliser une récupération ciblée, par exemple :
+La récupération du patch est **strictement limitée au fichier exact demandé**. Si l'utilisateur a fourni un chemin local explicite, contrôler uniquement ce chemin, sans explorer les autres dossiers ou Drive. Sinon, lire `REMOTE` dans `sync-drive.conf` et construire une seule cible déterministe dans CE projet :
+
+- `parametre_XXX.zip` : `${REMOTE}/patch/parametre/parametre_XXX.zip` ;
+- `patch_XXXX.zip` : `${REMOTE}/patch/patch_XXXX.zip` ;
+- chemin relatif précis fourni par l'utilisateur : uniquement ce chemin sous `${REMOTE}/patch/`, après rejet de `..`, des chemins absolus et de toute sortie du périmètre.
+
+Ne jamais lister `patch/`, la racine de Drive, d'autres sous-dossiers ou d'autres projets ; interdire `rclone lsl`, `rclone lsf`, `rclone lsjson`, les recherches globales et toute recherche de substitution. **Aucune exploration de Drive**, aucune seconde cible, aucun nom alternatif. La commande de récupération autorisée pointe vers **un seul fichier exact**, jamais un répertoire :
 
 ```bash
 source ./sync-drive.conf
-rclone lsl "${REMOTE}/patch/"
-rclone copyto "${REMOTE}/patch/patch_XXXX.zip" "/tmp/patch_XXXX.zip"
+rclone copyto "${REMOTE}/patch/parametre/parametre_008.zip" "/tmp/parametre_008.zip"
 ```
 
-Pour une archive de paramètres demandée explicitement par l'utilisateur, employer le chemin ciblé `"${REMOTE}/patch/parametre/parametre_001.zip"` et le destination `"/tmp/parametre_001.zip"` ; ne pas aspirer le dossier `patch/` ni changer le nom fourni.
+Pour un patch classique, remplacer les deux chemins par ceux du fichier explicitement demandé sous `patch/`. La commande ci-dessus est un **exemple de chemin exact**, non une autorisation de récupérer systématiquement `parametre_008.zip`.
+
+**En cas d'absence ou d'échec de récupération : STOP immédiat.** Ne faire ni listage ni recherche ailleurs ; ne pas récupérer un autre patch et ne pas appliquer quoi que ce soit. Afficher seulement `PATCH_INTROUVABLE` et le chemin exact attendu lorsque l'absence du fichier est confirmée ; si la cause est réseau ou permissions, afficher `RECUPERATION_BLOQUEE` sans l'assimiler à une absence. **Aucune modification du dépôt**, aucun test et aucune synchronisation. Comme aucun ZIP n'est disponible pour commencer le préflight, ne pas créer de rapport `diagnostics/` pour cette simple erreur de localisation ; cette exception ne diminue pas le rapport obligatoire des véritables tentatives d'application.
 
 Avant toute application, vérifier que la racine de travail correspond bien au projet, notamment par la présence de plusieurs éléments caractéristiques :
 
@@ -519,6 +526,23 @@ Pour tout changement Qt/QML/SQL/MQTT ou d'intégration, exécuter également `lo
 
 Une validation `prod` ou `dev-debug` n'est exécutée que si le manifeste la demande.
 
+### Tests Qt/OpenGL avec contexte graphique — hors sandbox obligatoire
+
+Les tests exigeant un **contexte OpenGL réel**, notamment `accloud_render3d_shader_compile`, **DOIVENT être exécutés hors du sandbox Codex**, dans la session graphique locale Wayland/X11 ayant accès à l'affichage et au pilote OpenGL. Quand le gate `local-full` contient ce test, sa phase CTest complète doit elle aussi être exécutée hors sandbox. La configuration et la compilation peuvent conserver leurs conditions d'exécution habituelles ; le changement de contexte concerne les tests graphiques.
+
+Sur le poste validé, `QT_QPA_PLATFORM=xcb` et `QT_QPA_PLATFORM=wayland` permettent tous deux de compiler et lier les shaders. Choisir une plateforme disponible dans la session locale ; **ne pas imposer `offscreen` au test OpenGL** pour contourner l'accès graphique. Les tests QML explicitement configurés `offscreen` ne sont pas concernés par cette règle.
+
+Exemple depuis `accloud/`, avec `BUILD_DIR` défini sur le répertoire binaire `local-full` réellement compilé :
+
+```bash
+QT_QPA_PLATFORM=xcb ctest --test-dir "$BUILD_DIR" -R '^accloud_render3d_shader_compile$' --output-on-failure
+QT_QPA_PLATFORM=xcb ctest --test-dir "$BUILD_DIR" --output-on-failure
+```
+
+Utiliser une autorisation d'exécution hors sandbox lorsqu'elle est disponible. À défaut d'accès autorisé à la session graphique, **ne pas simuler un succès, ne pas désactiver, ignorer ou marquer le test comme `Skipped`** : signaler le blocage d'environnement, fournir la commande exacte à exécuter dans le terminal graphique de l'utilisateur et laisser la validation locale en attente. Un échec de création de contexte dans le sandbox ne prouve ni un défaut des shaders ni une régression du patch.
+
+Consigner dans le rapport les commandes réelles, l'environnement graphique, les codes retour et le résultat du gate complet, sans attribuer à Codex l'exécution d'un test lancé par l'utilisateur. Cette règle n'autorise aucun test MQTT live, accès aux secrets, modification applicative ou publication Drive automatique. Le statut `VALIDE_LOCAL` exige toujours la réussite de l'ensemble des validations obligatoires.
+
 ---
 
 ## 18. Validations ciblées connues
@@ -855,6 +879,8 @@ Si la synchronisation échoue, afficher `SYNC — ÉCHEC`, l'étape bloquante et
 
 ## 27. Réponse courte en cas de refus avant application
 
+Si le ZIP exact est introuvable AVANT le préflight, indiquer seulement `PATCH_INTROUVABLE`, le chemin demandé et l'arrêt sans modification ; pour une panne d'accès indiquer `RECUPERATION_BLOQUEE`. Ne créer aucun rapport local dans ce seul cas, et n'explorer aucun autre chemin Drive. La règle ci-dessous concerne un ZIP disponible dont le préflight échoue.
+
 En cas de contradiction préflight, ne pas appliquer le patch ; créer le rapport local si possible puis répondre en **4 à 6 lignes maximum** :
 
 ```text
@@ -884,7 +910,15 @@ identifier dépôt et ZIP
 -> utilisateur lance séparément sync (publication dépôt + diagnostics)
 ```
 
-Blocage avant application :
+ZIP demandé absent ou inaccessible :
+
+```text
+vérifier le seul chemin exact du patch
+-> PATCH_INTROUVABLE ou RECUPERATION_BLOQUEE
+-> arrêt immédiat sans recherche alternative, rapport ni modification
+```
+
+Blocage avant application avec ZIP disponible :
 
 ```text
 contradiction détectée

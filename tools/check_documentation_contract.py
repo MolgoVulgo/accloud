@@ -180,6 +180,29 @@ def check_codex_policy_contract(root: Path, errors: list[str]) -> None:
             if legacy in content:
                 errors.append(f"{label} retains forbidden automatic publication: {legacy!r}")
 
+    # File retrieval is strictly one exact target; no listing, fallback or alternate Drive traversal.
+    for token in (
+        "## Récupération du patch — chemin exact uniquement",
+        "Aucune exploration de Drive", "sans modification du dépôt ni recherche alternative",
+        "PATCH_INTROUVABLE", "RECUPERATION_BLOQUEE",
+        "aucun rapport `diagnostics/` n'est créé",
+    ):
+        if token not in agents:
+            errors.append(f"AGENTS.md lacks exact-path retrieval rule: {token!r}")
+    for token in (
+        "strictement limitée au fichier exact demandé", "Aucune exploration de Drive",
+        'rclone copyto "${REMOTE}/patch/parametre/parametre_008.zip" "/tmp/parametre_008.zip"',
+        "Ne jamais lister `patch/`", "PATCH_INTROUVABLE", "RECUPERATION_BLOQUEE",
+        "Aucune modification du dépôt", "ne pas créer de rapport `diagnostics/`",
+        "## 27. Réponse courte en cas de refus avant application",
+    ):
+        if token not in codex:
+            errors.append(f"codex-patch-mode.md lacks exact-path retrieval rule: {token!r}")
+    if 'rclone lsl "${REMOTE}/patch/"' in codex:
+        errors.append("codex-patch-mode.md still lists the entire patch directory")
+    if 'rclone lsf "${REMOTE}/patch/"' in codex:
+        errors.append("codex-patch-mode.md still enumerates patch directory")
+
     # A concise chat must never replace the complete local Markdown audit report.
     for token in (
         "## Réponses Codex brèves", "4 à 6 lignes maximum",

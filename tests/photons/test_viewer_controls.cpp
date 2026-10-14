@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -69,6 +70,20 @@ int main() {
   error.clear();
   ok &= require(!visibility.setOneBased(0, 1, error),
                 "zero is not a valid user-facing layer number");
+  const auto previouslySelectedRange = visibility.range();
+  error.clear();
+  ok &= require(!visibility.setOneBased(1021, 415, error) && !error.empty(),
+                "reversed user range must be rejected with an error");
+  error.clear();
+  ok &= require(!visibility.setOneBased(1, 1248, error) && !error.empty(),
+                "user range beyond the last PWSZ layer must be rejected");
+  error.clear();
+  ok &= require(!visibility.setZeroBased({100, 1247}, error) && !error.empty(),
+                "zero-based ranges beyond the document must be rejected");
+  ok &= require(visibility.range().first == previouslySelectedRange.first
+                    && visibility.range().last == previouslySelectedRange.last,
+                "invalid layer requests must preserve the last valid selection");
+
 
   accloud::photons::MeshBounds bounds;
   bounds.include(0.0F, 0.0F, 0.0F);
@@ -113,6 +128,23 @@ int main() {
   const auto afterHorizontalPan = camera.target();
   ok &= require(std::abs(afterHorizontalPan.z - beforeHorizontalPan.z) < 0.000001,
                 "horizontal camera pan must not change world height");
+
+  const double distanceBeforeInvalidZoom = camera.distance();
+  camera.zoom(std::numeric_limits<double>::infinity());
+  ok &= require(camera.distance() == distanceBeforeInvalidZoom,
+                "non-finite wheel input must leave camera distance unchanged");
+  camera.zoom(-10000.0);
+  ok &= require(std::isfinite(camera.distance()) && camera.distance() > 0.0,
+                "extreme zoom-out must not overflow the viewer camera distance");
+  const auto extremePosition = camera.position();
+  ok &= require(std::isfinite(extremePosition.x)
+                    && std::isfinite(extremePosition.y)
+                    && std::isfinite(extremePosition.z),
+                "extreme zoom-out must keep the camera position finite");
+  const double extremeDistance = camera.distance();
+  camera.zoom(10000.0);
+  ok &= require(std::isfinite(camera.distance()) && camera.distance() < extremeDistance,
+                "viewer must recover from an extreme zoom-out input");
 
   return ok ? 0 : 1;
 }

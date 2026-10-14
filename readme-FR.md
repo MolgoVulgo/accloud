@@ -1,8 +1,14 @@
-# Anycubic Cloud Manager V3
+# accloud — candidate V1
 
-Anycubic Cloud Manager V3 est un client desktop Linux développé en C++20, Qt6 et QML. Il accède aux services cloud Anycubic observés, importe une session web réutilisable depuis une capture HAR, gère les fichiers cloud, affiche l'état des imprimantes et suit les impressions résine via MQTT.
+accloud est un client desktop Linux indépendant développé en C++20, Qt6 et QML. Il accède aux services cloud Anycubic observés, importe une session web réutilisable depuis une capture HAR, gère les fichiers cloud, affiche l'état des imprimantes et suit les impressions résine via MQTT.
 
 Ce projet n'est pas une application officielle Anycubic. Les endpoints, signatures, topics MQTT et comportements imprimante sont reconstruits à partir d'observations et peuvent changer sans préavis.
+
+**Statut :** préparation de `1.0.0-rc.1` ; la version officielle `1.0.0` n'est pas encore publiée. Développement et validation principale sur **Photon Mono M7 Pro**. Les autres imprimantes résine doivent être compatibles avec les services cloud Anycubic utilisés par accloud ; leur fonctionnement n'est pas garanti. Le nom Anycubic appartient à son titulaire ; accloud n'est ni affilié ni approuvé par ce fabricant.
+
+**Session :** import HAR automatique proposé à chaque démarrage sans session cloud fonctionnelle ; **Passer** ne vaut que pour le lancement courant. L'import manuel reste disponible dans Session. Les données de session restent au chemin standard.
+
+**Source :** https://github.com/MolgoVulgo/anycubic-cloud-manager
 
 ## Fonctions disponibles
 

@@ -115,7 +115,8 @@ def check_tabs_geometry_v2() -> list[str]:
         'objectName: "menuSettingsPrinting"',
         'objectName: "menuSettingsFilesUpload"',
         'objectName: "menuSettingsViewer3d"',
-        'objectName: "menuSessionLocation"',
+        'objectName: "menuSessionImportHar"',
+        'objectName: "menuHelpAbout"',
         "property bool viewer3dEnabled:",
         "viewerEnabled: root.viewer3dEnabled",
     ):
@@ -124,6 +125,9 @@ def check_tabs_geometry_v2() -> list[str]:
     for forbidden in (
         'objectName: "menuSettingsSession"',
         'objectName: "menuSettingsMqttAuthMode"',
+        'objectName: "menuSessionLocation"',
+        'objectName: "menuSessionDetails"',
+        'objectName: "menuHelpGit"',
         "experimentalViewerEnabled",
     ):
         if forbidden in main_text:
@@ -906,6 +910,36 @@ def check_incremental_printer_models() -> list[str]:
 
     return issues
 
+def check_v1_printer_controls() -> list[str]:
+    issues: list[str] = []
+    detail = read_text(QML_ROOT / "pages" / "PrinterDetailPanel.qml")
+    remote = read_text(QML_ROOT / "pages" / "PrinterRemotePrintConfigDialog.qml")
+    page = read_text(QML_ROOT / "pages" / "PrinterPage.qml")
+
+    for suffix in ("Basic", ""):
+        for number in ("1", "2", "3"):
+            token = f'objectName: "printerFunctionB{number}Button{suffix}"'
+            if token in detail:
+                issues.append(f"PrinterDetailPanel retains nonfunctional {token}")
+        feeding = f'objectName: "printerFunctionFeedingButton{suffix}"'
+        if feeding not in detail:
+            issues.append(f"PrinterDetailPanel missing functional {feeding}")
+
+    if "root.resinFeedRequested(printerId, 1)" not in detail or "root.resinFeedRequested(printerId, 2)" not in detail:
+        issues.append("PrinterDetailPanel resin feeding workflow is no longer wired")
+    if "root.startResinFeedOperation(printerId, feedType)" not in page:
+        issues.append("PrinterPage resin feeding operation is no longer wired")
+
+    for token in ("Lift compensation", "Auto resin check", "optionLiftCompensation", "optionAutoResinCheck"):
+        if token in remote or token in page:
+            issues.append(f"Unwired remote print option remains: {token}")
+    for token in ('objectName: "remotePrintOptionsCard"', 'visible: root.directPrintMode',
+                  'objectName: "directPrintDeleteAfterSuccess"'):
+        if token not in remote:
+            issues.append(f"Remote print cleanup option contract missing: {token}")
+    return issues
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -926,6 +960,7 @@ def main() -> int:
     errors.extend(f"- {msg}" for msg in check_qml_dead_workflow_cleanup())
     errors.extend(f"- {msg}" for msg in check_residual_ui_debt())
     errors.extend(f"- {msg}" for msg in check_cloud_file_details_contract())
+    errors.extend(f"- {msg}" for msg in check_v1_printer_controls())
 
     legacy_usage = find_legacy_alias_usage()
     if legacy_usage:

@@ -12,7 +12,7 @@ ApplicationWindow {
     width: 1480
     height: 920
     visible: true
-    title: qsTr("Anycubic Cloud Control Room")
+    title: "accloud"
     property string statusText: qsTr("Checking active session...")
     property string globalStatusMsg: qsTr("Ready.")
     property string globalStatusSev: "info"
@@ -28,7 +28,6 @@ ApplicationWindow {
                                && Qt.application.arguments
                                && Qt.application.arguments.indexOf("--debug-ui") !== -1
     property string sessionTargetPath: ""
-    property string sessionDetailsText: qsTr("No session check executed yet.")
     property string persistedThemeName: "WarmLight"
     property string persistedAccentName: "Teal"
     property string persistedLanguageCode: "system"
@@ -335,21 +334,6 @@ ApplicationWindow {
         printDialog.open()
     }
 
-    function showSessionDetails() {
-        if (typeof sessionImportBridge === "undefined"
-                || sessionImportBridge === null
-                || typeof sessionImportBridge.sessionDetails !== "function") {
-            sessionDetailsText = qsTr("Backend session unavailable.")
-            statusText = qsTr("Session details unavailable.")
-            sessionDetailsDialog.open()
-            return
-        }
-        var details = sessionImportBridge.sessionDetails(root.sessionTargetPath)
-        sessionDetailsText = String(details.details)
-        statusText = backendStatusText(details.message, qsTr("Session details loaded."))
-        sessionDetailsDialog.open()
-    }
-
     function applyStartupCheckResult(check) {
         if (check.sessionExists === true && check.connectionOk === true) {
             root.statusText = qsTr("Active session. Auto-refresh every 30s.")
@@ -544,27 +528,15 @@ ApplicationWindow {
             title: qsTr("Session")
 
             MenuItem {
-                objectName: "menuSessionDetails"
-                text: qsTr("Details")
-                onTriggered: root.showSessionDetails()
-            }
-
-            MenuItem {
                 objectName: "menuSessionImportHar"
                 text: qsTr("Import HAR...")
-                onTriggered: sessionDialog.open()
-            }
-
-            MenuSeparator {}
-
-            MenuItem {
-                objectName: "menuSessionLocation"
-                text: qsTr("Session location...")
                 onTriggered: {
-                    sessionPathField.text = root.sessionTargetPath
-                    sessionPathDialog.open()
+                    sessionDialog.mandatoryMode = false
+                    sessionDialog.startupMessage = ""
+                    sessionDialog.open()
                 }
             }
+
         }
 
         Menu {
@@ -577,11 +549,6 @@ ApplicationWindow {
                 onTriggered: aboutDialog.open()
             }
 
-            MenuItem {
-                objectName: "menuHelpGit"
-                text: qsTr("git")
-                onTriggered: gitDialog.open()
-            }
         }
     }
 
@@ -594,6 +561,10 @@ ApplicationWindow {
             sessionDialog.mandatoryMode = false
             sessionDialog.close()
         }
+        onImportSkipped: {
+            root.statusText = qsTr("No active cloud session. Import a HAR from the Session menu to connect.")
+            sessionDialog.mandatoryMode = false
+        }
     }
 
     Dialogs.UploadDraftDialog {
@@ -604,100 +575,6 @@ ApplicationWindow {
     Dialogs.PrintDraftDialog {
         id: printDialog
         objectName: "printDraftDialog"
-    }
-
-    AppDialogFrame {
-        id: sessionPathDialog
-        objectName: "sessionPathDialog"
-        title: qsTr("Session Settings")
-        subtitle: qsTr("Target session.json path used by Session > Import HAR.")
-        minimumWidth: 640
-        maximumWidth: 640
-        minimumHeight: 260
-        maximumHeight: 260
-        dialogSize: "medium"
-
-        AppTextField {
-            id: sessionPathField
-            objectName: "sessionPathField"
-            Layout.fillWidth: true
-            text: root.sessionTargetPath
-        }
-
-        footerLeadingData: [
-            AppButton {
-                text: qsTr("Default")
-                onClicked: {
-                    if (typeof sessionImportBridge !== "undefined"
-                            && sessionImportBridge !== null
-                            && typeof sessionImportBridge.defaultSessionPath === "function") {
-                        sessionPathField.text = String(sessionImportBridge.defaultSessionPath())
-                    }
-                }
-            }
-        ]
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Close")
-                onClicked: sessionPathDialog.close()
-            },
-            AppButton {
-                text: qsTr("Apply")
-                variant: "primary"
-                onClicked: {
-                    root.sessionTargetPath = sessionPathField.text.trim().length > 0
-                            ? sessionPathField.text.trim()
-                            : root.sessionTargetPath
-                    root.statusText = qsTr("Session target: %1").arg(root.sessionTargetPath)
-                    sessionPathDialog.close()
-                }
-            }
-        ]
-    }
-
-    AppDialogFrame {
-        id: sessionDetailsDialog
-        objectName: "sessionDetailsDialog"
-        title: qsTr("Session details")
-        minimumWidth: 620
-        maximumWidth: 620
-        minimumHeight: 330
-        maximumHeight: 330
-        dialogSize: "medium"
-
-        ScrollView {
-            id: sessionDetailsScroll
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
-                active: true
-            }
-            ScrollBar.horizontal: ScrollBar {
-                policy: ScrollBar.AsNeeded
-                active: true
-            }
-
-            TextArea {
-                id: sessionDetailsTextArea
-                objectName: "sessionDetailsTextArea"
-                width: sessionDetailsScroll.availableWidth
-                height: Math.max(sessionDetailsScroll.availableHeight, sessionDetailsTextArea.contentHeight)
-                readOnly: true
-                text: root.sessionDetailsText
-                wrapMode: TextEdit.Wrap
-                color: Theme.fgPrimary
-                background: null
-            }
-        }
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Close")
-                onClicked: sessionDetailsDialog.close()
-            }
-        ]
     }
 
     AppDialogFrame {
@@ -1137,73 +1014,67 @@ ApplicationWindow {
         id: aboutDialog
         objectName: "aboutDialog"
         title: qsTr("About")
-        minimumWidth: 560
-        maximumWidth: 560
-        minimumHeight: 280
-        maximumHeight: 280
+        minimumWidth: 520
+        maximumWidth: 600
+        maximumHeight: 460
         dialogSize: "small"
 
         Text {
+            objectName: "aboutAppName"
             Layout.fillWidth: true
-            text: qsTr("Anycubic Cloud Control Room\nVersion: 0.1.0\nQt/QML interface for cloud workflow and runtime logs.")
+            text: "accloud"
+            font.pixelSize: Theme.fontTitlePx
+            font.bold: true
             color: Theme.fgPrimary
-            wrapMode: Text.WordWrap
         }
 
-        Item { Layout.fillHeight: true }
+        Text {
+            objectName: "aboutVersionText"
+            Layout.fillWidth: true
+            text: qsTr("Version: %1").arg(Qt.application && Qt.application.version
+                                          ? Qt.application.version : qsTr("Development build"))
+            color: Theme.fgPrimary
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Independent cloud manager for compatible Anycubic resin printers.")
+            wrapMode: Text.WordWrap
+            color: Theme.fgPrimary
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Primary development and validation printer: Photon Mono M7 Pro.")
+            wrapMode: Text.WordWrap
+            color: Theme.fgSecondary
+        }
+
+        Text {
+            id: aboutGithubLink
+            objectName: "aboutGithubLink"
+            Layout.fillWidth: true
+            textFormat: Text.RichText
+            text: "<a href=\"https://github.com/MolgoVulgo/anycubic-cloud-manager\">"
+                  + qsTr("Source code on GitHub") + "</a>"
+            color: Theme.fgPrimary
+            onLinkActivated: function(link) {
+                if (link === "https://github.com/MolgoVulgo/anycubic-cloud-manager")
+                    Qt.openUrlExternally(link)
+            }
+        }
+
+        Text {
+            Layout.fillWidth: true
+            text: qsTr("Independent project. Not affiliated with or endorsed by Anycubic.")
+            color: Theme.fgSecondary
+            wrapMode: Text.WordWrap
+        }
 
         footerTrailingData: [
             AppButton {
                 text: qsTr("Close")
                 onClicked: aboutDialog.close()
-            }
-        ]
-    }
-
-    AppDialogFrame {
-        id: gitDialog
-        objectName: "gitDialog"
-        title: qsTr("git")
-        minimumWidth: 620
-        maximumWidth: 620
-        minimumHeight: 320
-        maximumHeight: 320
-        dialogSize: "medium"
-
-        ScrollView {
-            id: gitInfoScroll
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            ScrollBar.vertical: ScrollBar {
-                policy: ScrollBar.AsNeeded
-                active: true
-            }
-            ScrollBar.horizontal: ScrollBar {
-                policy: ScrollBar.AsNeeded
-                active: true
-            }
-
-            TextArea {
-                id: gitInfoTextArea
-                objectName: "gitInfoTextArea"
-                width: Math.max(gitInfoScroll.availableWidth, gitInfoTextArea.contentWidth)
-                height: Math.max(gitInfoScroll.availableHeight, gitInfoTextArea.contentHeight)
-                readOnly: true
-                wrapMode: TextEdit.NoWrap
-                text: qsTr("Useful shortcuts:\n")
-                    + "- git status --short\n"
-                    + "- git log --oneline -n 20\n"
-                    + "- git branch --show-current\n"
-                    + "- git diff --stat"
-                color: Theme.fgPrimary
-                background: null
-            }
-        }
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Close")
-                onClicked: gitDialog.close()
             }
         ]
     }
@@ -1254,7 +1125,7 @@ ApplicationWindow {
                         Text {
                             id: titleLabel
                             objectName: "controlRoomTitle"
-                            text: qsTr("Anycubic Cloud Control Room")
+                            text: "accloud"
                             color: Theme.fgPrimary
                             font.pixelSize: 20
                             font.bold: true

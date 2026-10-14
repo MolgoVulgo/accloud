@@ -7,7 +7,7 @@ import "../components"
 
 AppDialogFrame {
     id: root
-    title: qsTr("Session Settings")
+    title: qsTr("Import HAR session")
     subtitle: qsTr("Import a session from a HAR file. Analysis runs automatically when a file is selected.")
     minimumWidth: 860
     maximumWidth: 1120
@@ -22,16 +22,18 @@ AppDialogFrame {
     property bool pendingValid: false
     property string analyzedHarPath: ""
 
-    // When true: the dialog cannot be closed until a valid analysis is saved.
+    // Shown after an invalid startup check; Skip is allowed for this run only.
     property bool mandatoryMode: false
     // Reason message shown at the top when the dialog opens in mandatory mode.
     property string startupMessage: ""
 
+    showCloseButton: !root.mandatoryMode
     allowScrimClose: false
     allowEscapeClose: false
     requestCloseCallback: requestClose
 
     signal importCompleted(string message)
+    signal importSkipped()
 
     function localPathFromUrl(urlValue) {
         var value = String(urlValue)
@@ -97,6 +99,17 @@ AppDialogFrame {
         }
     }
 
+    // Does not store a skip preference and never creates a valid cloud session.
+    function requestSkip() {
+        if (root.importInProgress || root.pendingValid || !root.mandatoryMode)
+            return
+        if (root.importBridge !== null && typeof root.importBridge.discardPendingSession === "function")
+            root.importBridge.discardPendingSession()
+        root.importSkipped()
+        root.mandatoryMode = false
+        root.close()
+    }
+
     function requestClose() {
         if (root.importInProgress) {
             return
@@ -131,6 +144,10 @@ AppDialogFrame {
             root.resultDetails += qsTr("\n\nSave: OK\nCloud connection: ")
                     + (connOk ? qsTr("OK") : qsTr("FAILED - %1").arg(connMsg))
             root.pendingValid = false
+            if (!connOk) {
+                root.statusMessage = qsTr("Status: session saved, but the cloud connection is not verified. You may skip for this run.")
+                return
+            }
             root.importCompleted(connMsg)
         } else if (root.importBridge !== null && typeof root.importBridge.discardPendingSession === "function") {
             root.importBridge.discardPendingSession()
@@ -184,7 +201,7 @@ AppDialogFrame {
             }
         },
         Text {
-            text: qsTr("Session target (Settings > Session): ") + root.sessionTargetPath
+            text: qsTr("Session file (standard location): %1").arg(root.sessionTargetPath)
             color: Theme.fgSecondary
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
@@ -285,6 +302,16 @@ AppDialogFrame {
             text: root.statusMessage
             color: Theme.fgSecondary
             wrapMode: Text.WordWrap
+        }
+    ]
+
+    footerLeadingData: [
+        AppButton {
+            objectName: "harImportSkipButton"
+            text: qsTr("Skip")
+            visible: root.mandatoryMode
+            enabled: !root.importInProgress && !root.pendingValid
+            onClicked: root.requestSkip()
         }
     ]
 

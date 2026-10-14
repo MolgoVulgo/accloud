@@ -23,7 +23,11 @@ int fail(const char* message, const QString& details = {}) {
 } // namespace
 
 int main(int argc, char** argv) {
-  if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+  // Prefer Qt's native Wayland/XCB platform when a graphical session is present.
+  // Use the offscreen QPA plugin only when there is no display to connect to.
+  if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") &&
+      qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY") &&
+      qEnvironmentVariableIsEmpty("DISPLAY")) {
     qputenv("QT_QPA_PLATFORM", "offscreen");
   }
 

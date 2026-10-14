@@ -2246,6 +2246,34 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>3D colors updated: %1</source>
             <translation>Couleurs 3D mises à jour : %1</translation>
         </message>
+        <message>
+            <source>No active cloud session. Import a HAR from the Session menu to connect.</source>
+            <translation>Aucune session cloud active. Importez un HAR depuis le menu Session pour vous connecter.</translation>
+        </message>
+        <message>
+            <source>Version: %1</source>
+            <translation>Version : %1</translation>
+        </message>
+        <message>
+            <source>Development build</source>
+            <translation>Version de développement</translation>
+        </message>
+        <message>
+            <source>Independent cloud manager for compatible Anycubic resin printers.</source>
+            <translation>Gestionnaire cloud indépendant pour les imprimantes résine Anycubic compatibles.</translation>
+        </message>
+        <message>
+            <source>Primary development and validation printer: Photon Mono M7 Pro.</source>
+            <translation>Imprimante principale de développement et de validation : Photon Mono M7 Pro.</translation>
+        </message>
+        <message>
+            <source>Source code on GitHub</source>
+            <translation>Code source sur GitHub</translation>
+        </message>
+        <message>
+            <source>Independent project. Not affiliated with or endorsed by Anycubic.</source>
+            <translation>Projet indépendant, non affilié à Anycubic ni approuvé par cette marque.</translation>
+        </message>
 </context>
     <context>
         <name>MqttPage</name>
@@ -2683,7 +2711,11 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>Task %1</source>
             <translation>Tâche %1</translation>
         </message>
-    </context>
+            <message>
+            <source>Awaiting printer telemetry</source>
+            <translation>En attente de la télémétrie de l’imprimante</translation>
+        </message>
+</context>
     <context>
         <name>PrinterMainPanel</name>
         <message>
@@ -3575,7 +3607,19 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>Printer-local file deletion was not confirmed. The cloud file was kept.</source>
             <translation>La suppression du fichier local de l’imprimante n’a pas été confirmée. Le fichier cloud a été conservé.</translation>
         </message>
-    </context>
+            <message>
+            <source>Print order accepted (task_id=%1); waiting for printer telemetry.</source>
+            <translation>Ordre accepté (task_id=%1) ; en attente de la télémétrie de l’imprimante.</translation>
+        </message>
+        <message>
+            <source>Print order accepted; waiting for printer telemetry.</source>
+            <translation>Ordre accepté ; en attente de la télémétrie de l’imprimante.</translation>
+        </message>
+        <message>
+            <source>Print order accepted; waiting for printer telemetry</source>
+            <translation>Ordre accepté ; en attente de la télémétrie de l’imprimante</translation>
+        </message>
+</context>
     <context>
         <name>PrinterRemotePrintConfigDialog</name>
         <message>
@@ -3639,14 +3683,12 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <translation>Supprimer le fichier après impression</translation>
         </message>
         <message>
-            <location filename="../ui/qml/pages/PrinterRemotePrintConfigDialog.qml" />
             <source>Lift compensation</source>
-            <translation>Compensation de levage</translation>
+            <translation type="vanished">Compensation de levage</translation>
         </message>
         <message>
-            <location filename="../ui/qml/pages/PrinterRemotePrintConfigDialog.qml" />
             <source>Auto resin check</source>
-            <translation>Vérification automatique de la résine</translation>
+            <translation type="vanished">Vérification automatique de la résine</translation>
         </message>
         <message>
             <location filename="../ui/qml/pages/PrinterRemotePrintConfigDialog.qml" />
@@ -4040,6 +4082,22 @@ Connexion cloud : </translation>
             <location filename="../ui/qml/dialogs/SessionSettingsDialog.qml" line="295" />
             <source>Close</source>
             <translation>Fermer</translation>
+        </message>
+        <message>
+            <source>Import HAR session</source>
+            <translation>Importer une session HAR</translation>
+        </message>
+        <message>
+            <source>Skip</source>
+            <translation>Passer</translation>
+        </message>
+        <message>
+            <source>Session file (standard location): %1</source>
+            <translation>Fichier de session (emplacement standard) : %1</translation>
+        </message>
+        <message>
+            <source>Status: session saved, but the cloud connection is not verified. You may skip for this run.</source>
+            <translation>Statut : session enregistrée, mais connexion cloud non vérifiée. Vous pouvez passer pour ce démarrage.</translation>
         </message>
     </context>
     <context>

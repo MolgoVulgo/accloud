@@ -40,6 +40,8 @@ ctest --preset local-full --output-on-failure
 
 Le preset `local-full` constitue le gate Qt local complet. La configuration échoue si les composants Qt desktop, MQTT ou QuickTest requis sont absents, et il conserve les tests QML, SQL, GUI et d'intégration. Le test broker MQTT live reste soumis à l'activation explicite `ACCLOUD_MQTT_LIVE_TEST=1`.
 
+Le test `accloud_render3d_shader_compile` exige un véritable contexte OpenGL 3.3 Core afin de compiler et lier les shaders compacts, puis de vérifier les uniformes. CTest **n'impose plus `QT_QPA_PLATFORM=offscreen`** à ce test : Qt choisit la plateforme graphique disponible (Wayland ou XCB) lorsque `DISPLAY` ou `WAYLAND_DISPLAY` est présent, tout en respectant une valeur explicite de `QT_QPA_PLATFORM`. En l'absence d'affichage, l'exécutable choisit le plugin Qt QPA `offscreen` ; si cet environnement ne fournit pas OpenGL 3.3, le test **échoue** au lieu de masquer la validation des shaders. Sur un poste graphique, utiliser `QT_QPA_PLATFORM=xcb` ou `QT_QPA_PLATFORM=wayland` pour reproduire un problème propre à la plateforme. Cette modification du test Qt n'affecte ni le runtime applicatif ni les tests QML exécutés séparément en mode offscreen.
+
 Les tests exposent des labels CTest comme `core`, `static`, `qt`, `qml`, `sql`, `integration` et `live`, utilisables localement avec `ctest --preset local-full -L <label>`.
 
 Exemples ciblés :

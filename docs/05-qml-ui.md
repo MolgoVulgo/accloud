@@ -6,7 +6,7 @@ QML owns presentation, navigation and user interaction. Bridges and Qt models ex
 
 ## Active views
 
-The current shell includes cloud login/session settings, cloud files, printers, MQTT status and settings. Debug builds may add log and diagnostic pages. The PWSZ **3D viewer** is a standard desktop feature, including in production: each compatible PWSZ row exposes a **3D** action that downloads the file to a temporary local path and opens a dedicated modal; it does not add a fifth primary tab. Semantic support colouring is not present in this branch and remains an experimental feature outside the production build.
+The current shell includes HAR import/session management, cloud files, printers, MQTT status and settings. Debug builds may add log and diagnostic pages. The PWSZ **3D viewer** is a standard desktop feature, including in production: each compatible PWSZ row exposes a **3D** action that downloads the file to a temporary local path and opens a dedicated modal; it does not add a fifth primary tab. Semantic support colouring is not present in this branch and remains an experimental feature outside the production build.
 
 The main file loaded by the desktop runtime is:
 
@@ -34,16 +34,30 @@ Settings
    └─ 3D colors
 
 Session
-├─ Details
-├─ Import HAR...
-└─ Session location...
+└─ Import HAR...
 
 Help
-├─ About
-└─ git
+└─ About (accloud identity, version, GitHub link and independence notice)
 ```
 
+
+### Startup session flow (V1 candidate)
+
+The session stays in the standard location (`~/.local/share/accloud/session.json` on Linux). Session detail and path-selection dialogs are not exposed. On startup, a session recognized and verified by the cloud continues normally; if absent or not verified, the HAR import dialog opens. **Skip** dismisses the dialog for this launch only: it stores no skip preference and never creates a valid cloud session. If the next startup cannot verify the session, the dialog appears again. Manual HAR import remains available from **Session > Import HAR**.
+
+Saving the HAR session does not alone confirm cloud connectivity. Temporary network failure does not delete saved credentials. **About** shows the application-driven candidate version, Photon Mono M7 Pro as primary validation printer, the GitHub link and the independence notice.
+
 The MQTT Slicer mode is not exposed as a setting because it is a fixed runtime compatibility contract, not a user-selectable preference.
+
+### V1 printer commands and compatibility
+
+The device **Functions** card shows only **Feeding** (fill/drain), including in both basic and active-print layouts. The inactive **B1**, **B2** and **B3** placeholders were removed. The remote print confirmation dialog no longer shows **Lift compensation** or **Auto resin check**: these checkboxes were not connected to the actual print order. Its existing post-success local/cloud cleanup option is shown only for **Direct print**; cloud-file printing has no empty Options panel. No resin-feed MQTT order, printer-order protocol or cleanup workflow was altered by this UI cleanup.
+
+**Photon Mono M7 Pro** is the primary printer model used for development and physical validation. Other printers reported by and accessible through the **official Anycubic Cloud** may be selected if the existing cloud compatibility checks allow them; support is **not guaranteed**, and Wi-Fi connectivity by itself does not establish cloud or command compatibility. A capability advertised by hardware or model documentation is distinct from a remote command verified against a particular firmware and service response. In particular, showing the existing Feeding workflow is not proof that fill/drain commands are supported by every cloud printer. No hardcoded model whitelist or new backend capability claim was introduced.
+
+### V1 print-order acceptance versus printer confirmation (lot 05)
+
+A successful HTTP print-order response means only that the **order was accepted by the cloud**. Until a real printer or project state confirms activity, the selected printer retains its observed `READY`/`FREE`/`ONLINE` state and its header displays **Awaiting printer telemetry** with a neutral status tone. The temporary job placeholder uses `printStatus = -1` and must not trigger the active-print detail view or claim MQTT progress. `OFFLINE` and `ERROR` states remain authoritative. When actual cloud-project status `1` or printer `PRINTING` telemetry is observed, the regular printing display takes over. This change affects UI projection only; HTTP order sending, MQTT correlation, cleanup semantics and direct-print preparation remain unchanged.
 
 ## Responsibility rule
 
@@ -87,9 +101,14 @@ The persisted `render3d.palettePreset` value selects one of five paired part/bac
 
 In the 3D modal, the layer range is exposed as a vertical dual-handle slider on the right side of the viewport, visibly bounded by the maximum layer and layer `1`. Hovering a handle shows its layer number in a tooltip. Wheel input over the control changes only the upper bound; the lower bound remains mouse-drag only. No redundant numeric bound fields are displayed.
 
+The viewer camera keeps zoom distances finite even for extreme mouse-wheel or touchpad events, while ordinary zoom steps preserve the existing exponential response. Layer-range requests outside the PWSZ document or in reversed order are rejected without overwriting the last valid selection. Both boundaries are covered by `accloud_viewer_controls` using synthetic data.
+
 Direct-print persistence, project reconciliation and cleanup state transitions are owned by `PrintWorkflowBridge`, backed by `PendingDirectPrintStore` and the typed `DirectPrintLifecycleUseCase`. QML only registers an accepted direct print and forwards refreshed project snapshots to the workflow; it no longer keeps a direct-print cleanup map, matches projects, dispatches printer-local deletion, correlates cloud deletion, or interprets cleanup transitions. `CloudBridge` no longer exposes direct-print persistence methods. Asynchronous printer-order correlation uses a structured `QVariantMap` context (`kind` plus typed fields) instead of concatenated identifiers parsed with string prefixes or `split(":")`. MQTT `deleteLocal` confirmations are wired directly from `MqttBridge` to `PrintWorkflowBridge`; the bridge owns the pending `msgId` correlation and both local/cloud delete in-flight state. Direct local/cloud transport intents are wired from the workflow to `CloudBridge` in the desktop bootstrap, while QML receives only semantic cleanup notices and tracking-release signals. Standard cloud-list printing uses the same workflow boundary for post-print cleanup: QML only reports the completed printer task, `PrintWorkflowBridge` requests deletion of the printer-local file first, requests cloud deletion only after the local order succeeds, and emits semantic completion/failure notices. The QML pending remote-print map remains only as a temporary visual telemetry placeholder for an accepted print until live project data arrives.
 
 PWSZ preview completion is controlled by two persisted settings: completion itself is enabled by default, and confirmation before permanent local replacement is enabled by default. The confirmation dialog explains that `preview_1.png` is copied to `preview_2.png`, the prepared version is uploaded, and the local file is replaced only after cloud success. “Do not ask again” disables only the confirmation; both settings remain available from **Settings > Files / Upload**.
+
+
+The deferred direct-print initiative has a pure C++ preparation safety policy (`DirectPrintPreparationPolicy.h`) with dedicated tests. It defines independent cloud readiness verification, printer rechecks, durable reservation before sending, restart behavior and conservative handling of uncertain HTTP results. **This policy is not yet connected to the active upload/print workflow**; the existing direct-print runtime behavior remains unchanged in this stage.
 
 ## Cloud file multi-selection
 

@@ -72,6 +72,12 @@ Sur instruction explicite de l'utilisateur ou d'un nouveau `PATCH_MANIFEST.md` a
 
 `sync-drive.sh` opère toujours `LOCAL → DRIVE`. Il synchronise les fichiers projet en excluant `diagnostics/` de l’étape destructive, puis fait `rclone copy` non destructif des rapports `*_application_report*.md` et de `.gitkeep`, conservant ainsi les anciens rapports distants absents localement. Il met ensuite à jour `REPO_INDEX.json`. Le canal distant `patch/` reste hors synchronisation et Git est indépendant du Drive. Ne jamais faire de synchronisation globale Drive → local.
 
+## Récupération du patch — chemin exact uniquement
+
+Pour un patch identifié par l'utilisateur, Codex utilise uniquement le chemin local explicite fourni ou, s'il n'y en a pas, le chemin distant exact du projet déclaré dans `sync-drive.conf` : `patch/parametre/<archive>.zip` pour `parametre_XXX.zip`, `patch/<archive>.zip` pour un patch ordinaire. **Aucune exploration de Drive** : ni liste de répertoire (`rclone lsl`, `lsf`, `lsjson`, `ls`), ni recherche globale, ni racine Drive, ni autre projet, ni chemin de repli ou changement de nom. Le téléchargement autorisé est `rclone copyto` **d'une seule archive connue** vers `/tmp`, jamais d'un répertoire.
+
+Si le chemin demandé est introuvable, ou si la récupération échoue, **arrêt immédiat, sans modification du dépôt ni recherche alternative** : signaler `PATCH_INTROUVABLE` (ou `RECUPERATION_BLOQUEE` pour une erreur réseau/droits) avec le chemin attendu. Un ZIP non récupéré n'est pas une tentative d'application : aucun rapport `diagnostics/` n'est créé pour cet échec de localisation. Les rapports détaillés restent obligatoires dès qu'un ZIP effectivement disponible entre en préflight d'application.
+
 ## Réponses Codex brèves — détails dans `diagnostics/`
 
 Après une application de patch, Codex affiche **une seule réponse conversationnelle de 4 à 6 lignes maximum** (hors demande explicite de détails), après avoir rédigé le rapport complet dans `diagnostics/`. Aucun message de progression, aucune liste de fichiers, commandes, hashes, état Git ou journal de tests dans le chat. Le rapport Markdown local reste **complet, vérifiable et expurgé** ; la concision de la réponse ne réduit ni les validations ni la traçabilité.

@@ -1,6 +1,8 @@
 # accloud — build and runtime reference
 
-`accloud/` is the CMake entry point of Anycubic Cloud Manager V3. The executable is `accloud_cli`; `main.cpp` selects CLI mode (`--smoke`, `--import-har`) or the Qt/QML desktop runtime.
+`accloud/` is the CMake entry point of accloud (the independent resin-cloud manager). The executable is `accloud_cli`; `main.cpp` selects CLI mode (`--smoke`, `--import-har`) or the Qt/QML desktop runtime.
+
+The application version is configured in CMake as `PROJECT_VERSION` plus the `ACCLOUD_VERSION_PRERELEASE` candidate suffix (`rc.1` by default). Remove the suffix only for an approved final release. The Qt runtime passes the resulting version to the About dialog.
 
 ## Presets
 
