@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=accloud
+Comment=Independent resin-cloud manager
 Exec=accloud_cli
 Icon=org.accloud.App
 Categories=Utility;Graphics;

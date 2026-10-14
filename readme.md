@@ -50,3 +50,11 @@ Start with [the documentation index](docs/README.md). The main guide is delibera
 7. development, tests and patch delivery.
 
 French documentation: [readme-FR.md](readme-FR.md) and [docs/FR/README.md](docs/FR/README.md).
+
+## V1 candidate limitations and validation
+
+This is **`1.0.0-rc.1`**, not a final `1.0.0` release. The non-live `local-full` Qt/QML, core, MQTT-synthetic and viewer gates have been validated locally through the lot 05 corrective report; this does **not** certify a physical print, a live cloud session or a live MQTT broker. The deferred direct-print preparation safety policy is tested in C++ but **is not yet wired into the running upload/print workflow**: uploading a file that remains cloud-processing can still stop automatic direct-print initiation. No automatic replay of an uncertain print order is promised. The PWSZ viewer is limited to `.pwsz` in the supported UI path; other sliced formats have no 3D support claim.
+
+Compatibility evidence is intentionally graded: **confirmed** means the named simulated/local test passed; **expected** means the M7 Pro cloud workflow is the primary design target but awaits controlled hardware verification; **not tested** means other cloud-discovered printer models, firmware variants, or live print/cleanup workflows have no certification. A Wi-Fi connection alone is insufficient: the printer must be reachable through the official Anycubic cloud.
+
+Existing desktop metadata displays the `accloud` identity. The historical Arch `PKGBUILD` still targets `v0.85-1` and is **not** a validated `1.0.0-rc.1` package; no release archive or new packaging format is produced in this lot.

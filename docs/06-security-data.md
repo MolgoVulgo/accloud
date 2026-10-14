@@ -74,3 +74,7 @@ Public documentation archives contain only synthetic, redacted or aggregated exa
 ## Incident rule
 
 When a security validation fails, stop the requested validation chain, report the exact redacted failure and classify whether it comes from the patch, the environment or pre-existing debt. Do not suppress the check.
+
+## V1 candidate boundaries
+
+Non-live test reports may establish simulated state-machine, Qt/QML, viewer and redaction behavior only. They are not proof of cloud authorization, real hardware compatibility, a physical print or safe recovery from an uncertain HTTP print request. The independent deferred-direct-print policy has not yet been integrated with runtime transport. Never retry an uncertain print command solely because the client restarted; never delete a cloud file without confirmation of the exact printer-local deletion where required. Do not include HAR files, persisted `session.json`, signed URLs, raw traffic or authentication secrets in tests, diagnostics, release notes or patch archives. Live cloud/MQTT, physical prints and the `prod` gate require separate, explicit approval.

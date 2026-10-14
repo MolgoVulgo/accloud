@@ -199,3 +199,25 @@ A mandatory build or test failure stops delivery. Report command, useful redacte
 ## Git
 
 Never commit or push without explicit instruction. Build outputs, runtime files, logs, sessions, HAR and credentials are always excluded.
+
+## V1 final acceptance — lot 07 (candidate only)
+
+The `accloud_v1_acceptance_contract` CTest guard verifies that the existing QML/
+C++ tests are still declared and assert the V1 behaviours they originally
+protected. It does **not** assert that a simulated test replaces a real
+printer, cloud or graphical acceptance run.
+
+From the repository root, run:
+
+```bash
+python3 tools/check_v1_acceptance_contract.py --self-test
+python3 tools/check_v1_acceptance_contract.py --repo-root .
+```
+
+Use the **[V1 acceptance matrix](appendices/v1-release-acceptance.md)** before
+any release decision. The separate `--release-gate /path/to/sanitized-evidence.json`
+command is deliberately **not** a CTest target: it requires explicit human
+evidence, authorised live tests and an explicit final release decision.
+The deferred direct-print policy unit test does not certify its currently
+missing runtime integration. Keep `1.0.0-rc.1`; do not publish `1.0.0` on the
+strength of a green non-live `local-full` gate alone.

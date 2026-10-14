@@ -112,3 +112,13 @@ The original PWSZ download is streamed into an atomic `QSaveFile` in 64 KiB chun
 Candidate discovery is based on a complete, bounded cloud inventory rather than the first display page. The listing is paged in batches of at least 100 entries, deduplicated by cloud file identity and capped at 100 pages. Only an empty page confirms completion, so a server-side page-size cap cannot truncate discovery. A failed page, a repeated full page without progress, or the page cap marks the inventory incomplete; ACM still refreshes the visible fallback page but does not offer a destructive batch update from partial evidence.
 
 Post-upload thumbnail validation delegates to the same local thumbnail cache flow used by normal file display. This preserves the thumbnail-only `ignoreSslErrors()` compatibility exception, content validation, atomic cache write and cancellation behavior without extending SSL bypass to authenticated cloud APIs or user-file downloads.
+
+## V1 candidate — compatibility evidence matrix
+
+| Evidence level | Scope | Interpretation |
+| --- | --- | --- |
+| Confirmed locally | Synthetic compatibility/order workflow tests; cloud/QML guards in `local-full` | Code contracts only; no physical print or live Anycubic service certified |
+| Expected, unconfirmed live | Photon Mono M7 Pro on the official Anycubic cloud | Primary development target, subject to firmware, cloud response and hardware validation |
+| Not tested / not certified | Other cloud-discovered M7 or resin models, firmware variants, live print/cleanup and unsupported 3D file extensions | Never infer control support from Wi-Fi or cloud inventory alone |
+
+An HTTP-accepted print order is **not** an MQTT-confirmed start. The pending direct-print safety policy currently has independent C++ tests but is **not yet connected** to the active deferred cloud-processing/upload path. No exactly-once physical print or automatic restart recovery is claimed in this candidate. Live MQTT, real printer and `prod` validations require explicit authorization and remain outside the non-live gate.

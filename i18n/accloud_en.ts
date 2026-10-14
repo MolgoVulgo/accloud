@@ -1007,6 +1007,36 @@ Cancelled: %5</translation>
             <source>Downloading file for 3D view...</source>
             <translation>Downloading file for 3D view...</translation>
         </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="1592" />
+            <source>Close</source>
+            <translation>Close</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="785" />
+            <source>Delete unavailable without workflow backend.</source>
+            <translation>Delete unavailable without workflow backend.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="645" />
+            <source>Preparing download...</source>
+            <translation>Preparing download...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="823" />
+            <source>Preparing print setup for %1...</source>
+            <translation>Preparing print setup for %1...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="795" />
+            <source>Unable to start file deletion.</source>
+            <translation>Unable to start file deletion.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/CloudFilesPage.qml" line="766" />
+            <source>Unable to start selected-file deletion.</source>
+            <translation>Unable to start selected-file deletion.</translation>
+        </message>
     </context>
     <context>
         <name>CloudFilesPaginationBar</name>
@@ -2115,6 +2145,26 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <source>Independent project. Not affiliated with or endorsed by Anycubic.</source>
             <translation>Independent project. Not affiliated with or endorsed by Anycubic.</translation>
         </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/MainWindow.qml" line="737" />
+            <source>Cancel</source>
+            <translation>Cancel</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/MainWindow.qml" line="471" />
+            <source>Files / Upload</source>
+            <translation>Files / Upload</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/MainWindow.qml" line="415" />
+            <source>Interface</source>
+            <translation>Interface</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/MainWindow.qml" line="453" />
+            <source>Printing</source>
+            <translation>Printing</translation>
+        </message>
 </context>
     <context>
         <name>MqttPage</name>
@@ -2552,6 +2602,316 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <message>
             <source>Awaiting printer telemetry</source>
             <translation>Awaiting printer telemetry</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="279" />
+            <source>%1 %</source>
+            <translation>%1 %</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="358" />
+            <source>%1 / %2 layers</source>
+            <translation>%1 / %2 layers</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="548" />
+            <source>%1 L</source>
+            <translation>%1 L</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="530" />
+            <source>%1 h</source>
+            <translation>%1 h</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="641" />
+            <source>%1 layers</source>
+            <translation>%1 layers</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="639" />
+            <source>%1 prints</source>
+            <translation>%1 prints</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1804" />
+            <source>Cancel</source>
+            <translation>Cancel</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="699" />
+            <source>Canceled</source>
+            <translation>Canceled</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="287" />
+            <source>Check</source>
+            <translation>Check</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="198" />
+            <source>Check: %1</source>
+            <translation>Check: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="995" />
+            <source>Current File</source>
+            <translation>Current File</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="277" />
+            <source>Download</source>
+            <translation>Download</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1135" />
+            <source>Elapsed</source>
+            <translation>Elapsed</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="697" />
+            <source>Failed</source>
+            <translation>Failed</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1758" />
+            <source>Feeding</source>
+            <translation>Feeding</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1412" />
+            <source>Film State</source>
+            <translation>Film State</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="643" />
+            <source>Film a changer</source>
+            <translation>Film needs changing</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="695" />
+            <source>Finished</source>
+            <translation>Finished</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1289" />
+            <source>Firmware</source>
+            <translation>Firmware</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1531" />
+            <source>Functions</source>
+            <translation>Functions</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="274" />
+            <source>HTTPS accepted</source>
+            <translation>HTTPS accepted</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1015" />
+            <source>Impression</source>
+            <translation>Printing</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="693" />
+            <source>In progress</source>
+            <translation>In progress</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1443" />
+            <source>Last Printed File</source>
+            <translation>Last Printed File</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1106" />
+            <source>Layers</source>
+            <translation>Layers</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="282" />
+            <source>Loaded</source>
+            <translation>Loaded</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1249" />
+            <source>No preview</source>
+            <translation>No preview</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1843" />
+            <source>OK</source>
+            <translation>OK</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1769" />
+            <source>Operation de %1 en cours.</source>
+            <translation>%1 operation in progress.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1320" />
+            <source>Print Count</source>
+            <translation>Print Count</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1826" />
+            <source>Printer message</source>
+            <translation>Printer message</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="292" />
+            <source>Printing</source>
+            <translation>Printing</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1075" />
+            <source>Progress</source>
+            <translation>Progress</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1165" />
+            <source>Remaining</source>
+            <translation>Remaining</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1780" />
+            <source>Remplissage</source>
+            <translation>Filling</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="202" />
+            <source>Resin: %1</source>
+            <translation>Resin: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1827" />
+            <source>Resolve the printer message before continuing.</source>
+            <translation>Resolve the printer message before continuing.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1804" />
+            <source>Stop</source>
+            <translation>Stop</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="272" />
+            <source>Task</source>
+            <translation>Task</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1350" />
+            <source>Total Print Time</source>
+            <translation>Total Print Time</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1381" />
+            <source>Total Resin</source>
+            <translation>Total Resin</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="700" />
+            <source>Unknown</source>
+            <translation>Unknown</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1793" />
+            <source>Vidage</source>
+            <translation>Draining</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1507" />
+            <source>Waiting for printer data...</source>
+            <translation>Waiting for printer data...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="267" />
+            <source>active</source>
+            <translation>active</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="217" />
+            <source>bottle=%1</source>
+            <translation>bottle=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="221" />
+            <source>code=%1</source>
+            <translation>code=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="909" />
+            <source>done</source>
+            <translation>done</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="183" />
+            <source>hardware</source>
+            <translation>hardware</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="915" />
+            <source>pending</source>
+            <translation>pending</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="211" />
+            <source>phase=%1</source>
+            <translation>phase=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="213" />
+            <source>pre-print=%1</source>
+            <translation>pre-print=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="185" />
+            <source>preheat</source>
+            <translation>preheat</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="621" />
+            <source>remplissage</source>
+            <translation>filling</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="1770" />
+            <source>remplissage et le recyclage automatiques de la résine</source>
+            <translation>automatic resin filling and recycling</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="181" />
+            <source>resin fill</source>
+            <translation>resin fill</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="215" />
+            <source>runtime=%1</source>
+            <translation>runtime=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="931" />
+            <source>stop</source>
+            <translation>stop</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="219" />
+            <source>vat=%1</source>
+            <translation>vat=%1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="621" />
+            <source>vidage</source>
+            <translation>draining</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="161" />
+            <source>wait</source>
+            <translation>wait</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterDetailPanel.qml" line="932" />
+            <source>warning</source>
+            <translation>warning</translation>
         </message>
 </context>
     <context>
@@ -3208,6 +3568,191 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
         <message>
             <source>Print order accepted; waiting for printer telemetry</source>
             <translation>Print order accepted; waiting for printer telemetry</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="260" />
+            <source>%1 %</source>
+            <translation>%1 %</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="275" />
+            <source>%1 h %2 min</source>
+            <translation>%1 h %2 min</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="273" />
+            <source>%1 j %2 h %3 min</source>
+            <translation>%1 j %2 h %3 min</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="276" />
+            <source>%1 min</source>
+            <translation>%1 min</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2028" />
+            <source>%1 sent (order_id=%2, msgid=%3).</source>
+            <translation>%1 sent (order_id=%2, msgid=%3).</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2429" />
+            <source>Background sync failed (files): %1</source>
+            <translation>Background sync failed (files): %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2069" />
+            <source>Checking printer compatibility...</source>
+            <translation>Checking printer compatibility...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1663" />
+            <source>Connecting MQTT to retrieve printer local files...</source>
+            <translation>Connecting MQTT to retrieve printer local files...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2571" />
+            <source>Delete</source>
+            <translation>Delete</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1901" />
+            <source>Deleting local file %1...</source>
+            <translation>Deleting local file %1...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1943" />
+            <source>Invalid resin operation.</source>
+            <translation>Invalid resin operation.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1410" />
+            <source>Loading available printers...</source>
+            <translation>Loading available printers...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1930" />
+            <source>Local file deleted: %1</source>
+            <translation>Local file deleted: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1924" />
+            <source>Local file deletion failed: %1</source>
+            <translation>Local file deletion failed: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1848" />
+            <source>Local print task failed: %1</source>
+            <translation>Local print task failed: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1859" />
+            <source>Local print task sent (order_id=%1, msgid=%2).</source>
+            <translation>Local print task sent (order_id=%1, msgid=%2).</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1896" />
+            <source>Local printer file deletion requires sendOrder backend support.</source>
+            <translation>Local printer file deletion requires sendOrder backend support.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2489" />
+            <source>Print finished, but local file deletion failed. Cloud deletion skipped.</source>
+            <translation>Print finished, but local file deletion failed. Cloud deletion skipped.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2504" />
+            <source>Print finished. File deleted locally and in cloud.</source>
+            <translation>Print finished. File deleted locally and in cloud.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2499" />
+            <source>Print finished. Local file deleted, but cloud deletion failed.</source>
+            <translation>Print finished. Local file deleted, but cloud deletion failed.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2494" />
+            <source>Print finished. Local file deleted, but cloud file id is missing.</source>
+            <translation>Print finished. Local file deleted, but cloud file id is missing.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2098" />
+            <source>Print order is already being sent.</source>
+            <translation>Print order is already being sent.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1422" />
+            <source>Print workflow backend is unavailable.</source>
+            <translation>Print workflow backend is unavailable.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2097" />
+            <source>Remote print setup is still loading.</source>
+            <translation>Remote print setup is still loading.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2021" />
+            <source>Resin operation failed: %1</source>
+            <translation>Resin operation failed: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="824" />
+            <source>Resin operation finished.</source>
+            <translation>Resin operation finished.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1948" />
+            <source>Resin operation requires sendOrder backend support.</source>
+            <translation>Resin operation requires sendOrder backend support.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2051" />
+            <source>Resin operation stopped (order_id=%1, msgid=%2).</source>
+            <translation>Resin operation stopped (order_id=%1, msgid=%2).</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2041" />
+            <source>Resin stop failed: %1</source>
+            <translation>Resin stop failed: %1</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1820" />
+            <source>Sending local print task for %1...</source>
+            <translation>Sending local print task for %1...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2082" />
+            <source>Sending print order...</source>
+            <translation>Sending print order...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1959" />
+            <source>Starting %1 operation...</source>
+            <translation>Starting %1 operation...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="1992" />
+            <source>Stopping resin operation...</source>
+            <translation>Stopping resin operation...</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2042" />
+            <source>Task rejected.</source>
+            <translation>Task rejected.</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="704" />
+            <source>Waiting for printer telemetry</source>
+            <translation>Waiting for printer telemetry</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2027" />
+            <source>resin drain</source>
+            <translation>resin drain</translation>
+        </message>
+        <message>
+            <location filename="../src/accloud/ui/qml/pages/PrinterPage.qml" line="2027" />
+            <source>resin fill</source>
+            <translation>resin fill</translation>
         </message>
 </context>
     <context>

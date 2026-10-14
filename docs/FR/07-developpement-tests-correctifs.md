@@ -199,3 +199,25 @@ Un build ou test obligatoire en échec arrête la livraison. Rapporter la comman
 ## Git
 
 Ne jamais commit ni push sans instruction explicite. Outputs de build, fichiers runtime, logs, sessions, HAR et credentials sont toujours exclus.
+
+## Recette finale V1 — lot 07 (candidate uniquement)
+
+Le test CTest `accloud_v1_acceptance_contract` vérifie que les tests QML et C++
+existants sont toujours déclarés et contrôlent réellement les comportements V1
+qu'ils étaient censés protéger. Un test synthétique **ne remplace pas** une
+recette sur imprimante, cloud ou environnement graphique réels.
+
+Depuis la racine du dépôt :
+
+```bash
+python3 tools/check_v1_acceptance_contract.py --self-test
+python3 tools/check_v1_acceptance_contract.py --repo-root .
+```
+
+Consulter la **[matrice de recette V1](annexes/recette-v1.md)** avant toute
+décision de publication. La commande séparée
+`--release-gate /chemin/vers/preuves-expurgees.json` est volontairement **hors
+CTest** : elle exige des preuves humaines, l'autorisation des tests live et
+une décision de publication distincte. Le test unitaire de politique C++
+d'impression différée ne prouve pas son intégration runtime actuellement absente.
+Conserver `1.0.0-rc.1` ; ne pas publier `1.0.0` sur la seule base de `local-full`.

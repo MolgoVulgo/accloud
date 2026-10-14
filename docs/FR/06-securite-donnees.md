@@ -74,3 +74,7 @@ Les archives documentaires publiques conservent uniquement des exemples synthét
 ## Règle d'incident
 
 Lorsqu'une validation sécurité échoue, arrêter la chaîne de validation demandée, rapporter l'échec redacted et qualifier s'il vient du patch, de l'environnement ou d'une dette préexistante. Ne pas neutraliser le contrôle.
+
+## Frontières de la candidate V1
+
+Les rapports de tests non-live attestent uniquement les comportements simulés (machines d’états, Qt/QML, viewer et masquage des secrets). Ils ne prouvent ni une session cloud réelle, ni une compatibilité matérielle, ni une impression physique, ni une reprise sûre après une réponse HTTP incertaine. La politique de préparation différée de l’impression directe est indépendante et n’est pas encore intégrée au transport runtime. Ne jamais rejouer un ordre incertain du seul fait du redémarrage ; ne jamais supprimer un fichier cloud lorsque la confirmation de suppression du fichier local exact de l’imprimante est requise mais absente. Ne placer aucun HAR, `session.json`, URL signée, trafic brut ou secret d’authentification dans les tests, rapports, notes de release ou patchs. Les tests cloud/MQTT live, les impressions physiques et le gate `prod` exigent une autorisation distincte et explicite.

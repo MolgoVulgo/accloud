@@ -112,3 +112,13 @@ Le téléchargement du PWSZ original est écrit en flux dans un `QSaveFile` atom
 La découverte des candidats repose sur un inventaire cloud complet et borné, pas sur la première page affichée. Le listing est parcouru par pages d’au moins 100 entrées, dédupliqué par identité de fichier cloud et limité à 100 pages. Seule une page vide confirme la fin, afin qu’une limite de taille imposée côté serveur ne tronque pas la découverte. Un échec de page, une page pleine répétée sans progression ou l’atteinte de la limite rendent l’inventaire incomplet ; ACM rafraîchit encore la page visible en fallback, mais ne propose aucune opération groupée destructive à partir d’informations partielles.
 
 La validation de la miniature après upload délègue au même flux de cache local que l’affichage normal des fichiers. Elle conserve ainsi l’exception `ignoreSslErrors()` limitée aux miniatures, la validation du contenu, l’écriture atomique du cache et l’annulation, sans étendre le contournement SSL aux APIs cloud authentifiées ni aux téléchargements de fichiers utilisateur.
+
+## Candidate V1 — matrice de preuve de compatibilité
+
+| Niveau de preuve | Périmètre | Interprétation |
+| --- | --- | --- |
+| Confirmé localement | Tests synthétiques de compatibilité et de workflow d’ordre, gardes cloud/QML de `local-full` | Contrats logiciels uniquement ; aucune impression physique ni session cloud live certifiée |
+| Attendu, non confirmé en conditions réelles | Photon Mono M7 Pro sur le cloud officiel Anycubic | Imprimante principale de développement, sous réserve du firmware, des réponses cloud et de la validation matérielle |
+| Non testé / non certifié | Autres M7 ou imprimantes résine découvertes via le cloud, variantes de firmware, impression/nettoyage réels et autres extensions 3D | Ne jamais inférer des commandes à partir du Wi-Fi ou de l’inventaire cloud seul |
+
+Un ordre d’impression accepté en HTTP n’est **pas** un démarrage confirmé par MQTT. La politique de sécurité de préparation différée possède des tests C++ indépendants, mais **n’est pas encore intégrée** au parcours actif upload/traitement cloud. Aucune garantie d’impression physique exactement une fois ou de reprise automatique après redémarrage n’est avancée pour cette candidate. Les validations MQTT live, matérielles et `prod` exigent une autorisation explicite et restent hors du gate non-live.

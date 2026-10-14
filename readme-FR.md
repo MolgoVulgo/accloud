@@ -48,3 +48,11 @@ Commencer par [l'index documentaire français](docs/FR/README.md). Le guide prin
 5. interface QML et internationalisation ;
 6. sécurité, logs, cache et données ;
 7. développement, tests et livraison des correctifs.
+
+## Limites et validation de la candidate V1
+
+Il s’agit de **`1.0.0-rc.1`**, pas de la version finale `1.0.0`. Le gate local `local-full` non-live (Qt/QML, cœur, MQTT synthétique et viewer) a été validé jusqu’au rapport correctif du lot 05 ; cela **ne certifie pas** une impression physique, une session cloud réelle ni un broker MQTT live. La politique de préparation différée de l’impression directe possède des tests C++, mais **n’est pas encore raccordée au parcours actif d’upload/impression** : si le fichier reste en traitement côté cloud après l’upload, le lancement direct automatique peut encore s’arrêter. Aucun rejeu automatique d’un ordre d’impression incertain n’est garanti. Le viewer ne promet le rendu 3D que pour `.pwsz` via le parcours prévu ; les autres formats tranchés ne sont pas annoncés comme pris en charge en 3D.
+
+La compatibilité est classée selon le niveau de preuve : **confirmé** désigne un test local/simulé exécuté ; **attendu** désigne le parcours cloud de la M7 Pro, imprimante cible, encore soumis à validation matérielle contrôlée ; **non testé** désigne les autres modèles découverts via le cloud, firmwares ou parcours réels d’impression/nettoyage non certifiés. La connexion Wi-Fi ne suffit pas : l’imprimante doit être accessible via le cloud officiel Anycubic.
+
+Les métadonnées desktop existantes affichent l’identité `accloud`. L’ancien `PKGBUILD` Arch cible toujours `v0.85-1` et ne constitue **pas** un paquet `1.0.0-rc.1` validé ; ce lot ne produit ni archive de release ni nouveau format de packaging.

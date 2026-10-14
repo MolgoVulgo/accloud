@@ -444,6 +444,11 @@ if(Python3_Interpreter_FOUND)
     COMMAND ${Python3_EXECUTABLE} ${ACCLOUD_TOOLS_ROOT}/check_ui_migration.py
   )
   add_test(
+    NAME accloud_release_candidate_contract
+    COMMAND ${Python3_EXECUTABLE} ${ACCLOUD_TOOLS_ROOT}/check_release_candidate_contract.py
+            --repo-root ${ACCLOUD_REPO_ROOT}
+  )
+  add_test(
     NAME accloud_documentation_contract
     COMMAND ${Python3_EXECUTABLE} ${ACCLOUD_TOOLS_ROOT}/check_documentation_contract.py
             --repo-root ${ACCLOUD_REPO_ROOT}
@@ -474,6 +479,14 @@ if(Python3_Interpreter_FOUND)
             --repo-root ${ACCLOUD_REPO_ROOT}
   )
   set_tests_properties(accloud_ui_migration_check PROPERTIES LABELS "static;ui")
+  set_tests_properties(accloud_release_candidate_contract PROPERTIES LABELS "static;i18n;release;ui")
+  add_test(
+    NAME accloud_v1_acceptance_contract
+    COMMAND ${Python3_EXECUTABLE} ${ACCLOUD_TOOLS_ROOT}/check_v1_acceptance_contract.py
+            --repo-root ${ACCLOUD_REPO_ROOT}
+  )
+  set_tests_properties(accloud_v1_acceptance_contract PROPERTIES LABELS "static;release;acceptance")
+
   set_tests_properties(accloud_documentation_contract PROPERTIES LABELS "static;documentation")
   set_tests_properties(accloud_cloud_api_architecture PROPERTIES LABELS "static;cloud;architecture")
   set_tests_properties(accloud_cloud_bridge_architecture PROPERTIES LABELS "static;cloud;architecture")

@@ -2,10 +2,10 @@
 <component type="desktop-application">
   <id>org.accloud.App</id>
   <name>accloud</name>
-  <summary>Anycubic Photon and Cloud management toolkit</summary>
+  <summary>Independent resin-cloud management desktop client</summary>
   <metadata_license>FSFAP</metadata_license>
   <project_license>MIT</project_license>
-  <url type="homepage">https://github.com/MolgoVulgo/anycubic-cloud-manager-v3/releases/latest</url>
+  <url type="homepage">https://github.com/MolgoVulgo/anycubic-cloud-manager</url>
   <launchable type="desktop-id">accloud.desktop</launchable>
   <description>
     <p>Desktop client for Anycubic cloud file management, printer monitoring and MQTT-based resin print tracking.</p>
