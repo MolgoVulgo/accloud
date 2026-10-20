@@ -917,10 +917,14 @@ ApplicationWindow {
         id: controlRoomShellComponent
 
         ColumnLayout {
+            id: controlRoomShell
             anchors.fill: parent
             anchors.margins: 12
             spacing: 12
 
+            // Keep the page alive after first visit: a nested event loop in connectRaw()
+            // can otherwise destroy a still-running MQTT button click handler.
+            property bool mqttPageInitialized: false
             property int currentTabIndex: controlTabs.currentIndex
             function setCurrentTabIndex(index) {
                 if (index >= 0 && index < controlTabs.count) {
@@ -1047,6 +1051,8 @@ ApplicationWindow {
                         }
 
                         onCurrentIndexChanged: {
+                            if (currentIndex === 2)
+                                controlRoomShell.mqttPageInitialized = true
                             if (currentIndex === 1
                                     && printerPage
                                     && typeof printerPage.ensureStartupInitialized === "function") {
@@ -1133,7 +1139,9 @@ ApplicationWindow {
                             Loader {
                                 id: mqttPageLoader
                                 anchors.fill: parent
-                                active: controlTabs.currentIndex === 2
+                                active: !root.prodUi
+                                        && (controlTabs.currentIndex === 2
+                                            || controlRoomShell.mqttPageInitialized)
                                 sourceComponent: Pages.MqttPage {
                                     objectName: "mqttPage"
                                     embeddedInTabsContainer: true

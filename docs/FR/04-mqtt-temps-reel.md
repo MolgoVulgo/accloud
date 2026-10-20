@@ -55,6 +55,8 @@ Le runtime charge l'identité de session et le token MQTT, dérive les credentia
 
 Le constructeur peut préparer l’auto-connexion de manière asynchrone. Une demande UI ultérieure ne lance pas une seconde préparation tant que celle d’arrière-plan est active ; une nouvelle tentative reste possible après sa fin si le profil n’était pas prêt.
 
+En cas de refus d'authentification du broker, l'événement `mqtt_profile/profile_prepared` indique uniquement la **catégorie de provenance** du jeton (`environment_override`, `session_auth_field` ou `session_legacy_fallback`) et le mode `slicer` figé ; le jeton n'est jamais journalisé. `mqtt_session/client_error` ajoute un champ sûr `error_kind` au code Qt numérique (`not_authorized` pour le code 5 ou `bad_username_or_password`). Ces événements distinguent l'origine du profil du rejet du broker ; ils ne prouvent pas la validité du jeton et ne modifient ni credentials, ni retries, ni TLS, ni contrat broker figé. Une session HTTP valide ne prouve pas une autorisation MQTT. Vérifier les journaux caviardés après une tentative contrôlée, sans publier de HAR ni de secrets MQTT bruts.
+
 Un générateur Android interne existe pour l'analyse de compatibilité. Le profil production reste `slicer` ; une opération de nettoyage ou de standardisation ne doit pas le remplacer par `android` ou un mode automatique.
 
 

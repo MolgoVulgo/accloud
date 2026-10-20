@@ -1819,6 +1819,60 @@ TestCase {
         page.destroy()
     }
 
+    function test_mqtt_tab_stays_alive_when_connect_handler_navigates_to_logs() {
+        mqttBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
+                                         'property var navigationTabs: null;' +
+                                         'property int connectCalls: 0;' +
+                                         'property string status: "idle";' +
+                                         'property string subscribedTopics: "";' +
+                                         'property var receivedTopics: [];' +
+                                         'property int messageTick: 0;' +
+                                         'property string telemetrySnapshot: "";' +
+                                         'property var tailModel: null;' +
+                                         'property bool diagnosticsActive: false;' +
+                                         'function setUiDiagnosticsActive(active) { diagnosticsActive = active; }' +
+                                         'function ensureAutoConnected() { return true; }' +
+                                         'function messagesForTopic(topic) { return ""; }' +
+                                         'function connectRaw() {' +
+                                         '  connectCalls += 1;' +
+                                         '  if (navigationTabs !== null) navigationTabs.currentIndex = 3;' +
+                                         '  return true;' +
+                                         '}' +
+                                         'function disconnectRaw() {}' +
+                                         'function clearRaw() {}' +
+                                         '}', this, "mqttNavigationMock")
+
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        var tabs = findObjectByName(window, "controlRoomTabs")
+        verify(tabs !== null)
+        compare(findObjectByName(window, "mqttPage"), null)
+        tabs.currentIndex = 2
+        wait(0)
+        var page = findObjectByName(window, "mqttPage")
+        verify(page !== null)
+        compare(page.pageActive, true)
+        compare(mqttBridge.diagnosticsActive, true)
+
+        mqttBridge.navigationTabs = tabs
+        var connectButton = findObjectByName(page, "mqttConnectButton")
+        verify(connectButton !== null)
+        // Reproduce navigation during the still-active MQTT button handler.
+        connectButton.clicked()
+        compare(mqttBridge.connectCalls, 1)
+        compare(tabs.currentIndex, 3)
+        compare(findObjectByName(window, "mqttPage"), page)
+        compare(page.pageActive, false)
+        compare(mqttBridge.diagnosticsActive, false)
+
+        tabs.currentIndex = 2
+        wait(0)
+        compare(findObjectByName(window, "mqttPage"), page)
+        compare(page.pageActive, true)
+        compare(mqttBridge.diagnosticsActive, true)
+        window.close()
+        window.destroy()
+    }
+
     function test_mqtt_page_bounds_diagnostics_by_visibility() {
         mqttBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
                                          'property string status: "idle";' +

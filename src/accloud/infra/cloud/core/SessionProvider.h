@@ -8,6 +8,13 @@
 
 namespace accloud::cloud::core {
 
+enum class MqttAuthTokenOrigin {
+    EnvironmentOverride,
+    SessionAuthToken,
+    LegacySessionToken,
+    Missing,
+};
+
 struct CloudRequestContext {
     std::string accessToken;
     std::string xxToken;
@@ -16,6 +23,8 @@ struct CloudRequestContext {
     std::string userId;
     std::string modeAuth;
     std::filesystem::path sessionPath;
+    // Non-secret diagnostic label, independent of the token's contents.
+    std::string mqttAuthSource;
 };
 
 struct SessionContextResult {
@@ -26,6 +35,10 @@ struct SessionContextResult {
 
 class SessionProvider {
 public:
+    static MqttAuthTokenOrigin resolveMqttAuthTokenOrigin(
+        const cloud::SessionData& session, bool hasEnvironmentOverride);
+    static const char* mqttAuthTokenOriginName(MqttAuthTokenOrigin origin);
+
     cloud::LoadSessionResult loadCurrentSession(
         const std::optional<std::filesystem::path>& pathOverride = std::nullopt) const;
 

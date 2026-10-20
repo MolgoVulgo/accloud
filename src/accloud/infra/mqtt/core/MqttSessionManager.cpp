@@ -61,6 +61,19 @@ int computeBackoffDelayMs(int attempt, const MqttSessionConfig& config, std::mt1
 }
 
 #ifdef ACCLOUD_WITH_MQTT
+const char* clientErrorKind(QMqttClient::ClientError code) {
+    switch (code) {
+        case QMqttClient::NotAuthorized:
+            return "not_authorized";
+        case QMqttClient::BadUsernameOrPassword:
+            return "bad_username_or_password";
+        case QMqttClient::NoError:
+            return "none";
+        default:
+            return "other";
+    }
+}
+
 const char* reasonCodeToString(QMqtt::ReasonCode code) {
     using Rc = QMqtt::ReasonCode;
     switch (code) {
@@ -411,6 +424,7 @@ struct MqttSessionManager::Impl {
                           "MQTT client error signaled",
                           {
                               {"error_code", std::to_string(static_cast<int>(e))},
+                              {"error_kind", clientErrorKind(e)},
                           });
             if (reconnectTimer) {
                 reconnectTimer->stop();

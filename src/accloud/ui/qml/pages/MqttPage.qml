@@ -122,6 +122,7 @@ Item {
                 spacing: Theme.gapRow
 
                 AppButton {
+                    objectName: "mqttConnectButton"
                     text: qsTr("Connect")
                     variant: "primary"
                     onClicked: {

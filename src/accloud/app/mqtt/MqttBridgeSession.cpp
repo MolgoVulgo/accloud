@@ -153,6 +153,9 @@ PreparedMqttProfile buildPreparedProfile() {
         return out;
     }
     out.credentials = built.candidates.front().credentials;
+    logging::info("mqtt", "mqtt_profile", "profile_prepared",
+                  "Slicer MQTT profile prepared",
+                  {{"mode", "slicer"}, {"profile_source", ctxResult.context.mqttAuthSource}});
 
     const std::string userMd5 = md5LowerHex(userId);
     out.subscriptions = mqtt::routing::MqttTopicBuilder::buildUserReportTopics(userId, userMd5);

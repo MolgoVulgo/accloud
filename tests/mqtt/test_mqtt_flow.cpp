@@ -1,6 +1,8 @@
 #include "app/realtime/PrinterRealtimeStore.h"
 #include "app/usecases/cloud/ApplyRealtimeOverlayUseCase.h"
 #include "infra/mqtt/core/MqttCredentialProvider.h"
+#include "infra/cloud/core/SessionProvider.h"
+#include "infra/logging/Redactor.h"
 #include "infra/mqtt/core/TlsMaterialProvider.h"
 #include "infra/mqtt/observability/TelemetryObservationStore.h"
 #include "infra/mqtt/routing/MqttMessageRouter.h"
@@ -895,6 +897,47 @@ bool test_tls_provider_local_fallback_paths() {
                   "Missing local private key should report mqtt_tls_client_key_invalid");
 }
 
+bool test_mqtt_auth_source_diagnostic_preserves_precedence_and_redaction() {
+    using accloud::cloud::core::MqttAuthTokenOrigin;
+    using accloud::cloud::core::SessionProvider;
+    accloud::cloud::SessionData session;
+
+    const auto origin = [&](bool envOverride) {
+        return SessionProvider::resolveMqttAuthTokenOrigin(session, envOverride);
+    };
+    if (!expect(origin(false) == MqttAuthTokenOrigin::Missing,
+                "Missing MQTT source should be explicit")) {
+        return false;
+    }
+    session.tokens["token"] = "legacy-secret-value";
+    if (!expect(origin(false) == MqttAuthTokenOrigin::LegacySessionToken,
+                "Legacy token should be selected only as fallback")) {
+        return false;
+    }
+    session.tokens["auth_token"] = "current-secret-value";
+    if (!expect(origin(false) == MqttAuthTokenOrigin::SessionAuthToken,
+                "auth_token must take precedence over legacy token")) {
+        return false;
+    }
+    if (!expect(origin(true) == MqttAuthTokenOrigin::EnvironmentOverride,
+                "Explicit environment override must take precedence")) {
+        return false;
+    }
+    session.tokens["auth_token"].clear();
+    if (!expect(origin(false) == MqttAuthTokenOrigin::LegacySessionToken,
+                "Empty auth_token must retain the existing legacy fallback")) {
+        return false;
+    }
+    const std::string label = SessionProvider::mqttAuthTokenOriginName(origin(false));
+    return expect(label == "session_legacy_fallback", "Source label should be stable")
+        && expect(label.find("secret") == std::string::npos,
+                  "Source label must not expose the source contents")
+        && expect(accloud::logging::redactValueForKey("profile_source", label) == label,
+                  "Safe profile source must survive log redaction")
+        && expect(accloud::logging::redactValueForKey("error_kind", "not_authorized")
+                  == "not_authorized", "Safe error kind must survive log redaction");
+}
+
 bool test_slicer_credentials_use_explicit_local_fallback() {
     const auto prevCa = envValue("ACCLOUD_MQTT_TLS_CA_PATH");
     const auto prevDevFallback = envValue("ACCLOUD_MQTT_TLS_DEV_FALLBACK");
@@ -1110,6 +1153,7 @@ int main() {
     ok = test_tls_provider_requires_explicit_local_fallback() && ok;
     ok = test_tls_provider_local_fallback_paths() && ok;
     ok = test_slicer_credentials_use_explicit_local_fallback() && ok;
+    ok = test_mqtt_auth_source_diagnostic_preserves_precedence_and_redaction() && ok;
     ok = test_printer_subscription_topics_match_resin_profile() && ok;
     ok = test_extended_printer_topics_keep_server_wildcard_for_diagnostics() && ok;
     ok = test_subscription_profile_has_3_topics_for_two_printers_fixture() && ok;

@@ -55,6 +55,8 @@ The runtime loads the session identity and MQTT auth token, derives slicer crede
 
 The constructor can prepare the automatic connection asynchronously. A later UI request does not start a second preparation while that background preparation is active; once it finishes, a later request may retry if the profile was not ready.
 
+For a broker authentication rejection, the `mqtt_profile/profile_prepared` event reports only the chosen **source category** (`environment_override`, `session_auth_field`, or `session_legacy_fallback`) and the fixed `slicer` mode; the original token is not logged. `mqtt_session/client_error` exposes a safe `error_kind` alongside the Qt numeric code (`not_authorized` for code 5, or `bad_username_or_password`). These events distinguish profile provenance from broker rejection; they do not prove token validity and do not alter credentials, retries, TLS or the frozen broker contract. HTTP session validation alone does not establish MQTT authorisation. Inspect redacted logs after one controlled connection attempt; never publish HARs or raw MQTT secrets.
+
 An internal Android credential generator exists for compatibility analysis. The production profile remains `slicer`; it must not be switched to `android` or automatic selection by cleanup or standardisation work.
 
 

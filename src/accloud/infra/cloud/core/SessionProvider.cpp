@@ -310,6 +310,36 @@ std::string SessionProvider::optionalXxToken(const cloud::SessionData& session) 
     return {};
 }
 
+MqttAuthTokenOrigin SessionProvider::resolveMqttAuthTokenOrigin(
+    const cloud::SessionData& session, bool hasEnvironmentOverride) {
+    if (hasEnvironmentOverride) {
+        return MqttAuthTokenOrigin::EnvironmentOverride;
+    }
+    const auto authIt = session.tokens.find("auth_token");
+    if (authIt != session.tokens.end() && !authIt->second.empty()) {
+        return MqttAuthTokenOrigin::SessionAuthToken;
+    }
+    const auto legacyIt = session.tokens.find("token");
+    if (legacyIt != session.tokens.end() && !legacyIt->second.empty()) {
+        return MqttAuthTokenOrigin::LegacySessionToken;
+    }
+    return MqttAuthTokenOrigin::Missing;
+}
+
+const char* SessionProvider::mqttAuthTokenOriginName(MqttAuthTokenOrigin origin) {
+    switch (origin) {
+        case MqttAuthTokenOrigin::EnvironmentOverride:
+            return "environment_override";
+        case MqttAuthTokenOrigin::SessionAuthToken:
+            return "session_auth_field";
+        case MqttAuthTokenOrigin::LegacySessionToken:
+            return "session_legacy_fallback";
+        case MqttAuthTokenOrigin::Missing:
+            return "missing";
+    }
+    return "missing";
+}
+
 std::string SessionProvider::optionalMqttAuthToken(const cloud::SessionData& session) const {
     const auto authTokenIt = session.tokens.find("auth_token");
     if (authTokenIt != session.tokens.end() && !authTokenIt->second.empty()) {
@@ -338,6 +368,10 @@ SessionContextResult SessionProvider::loadRequestContext(
     CloudRequestContext context;
     context.accessToken = *accessToken;
     context.xxToken = optionalXxToken(loaded.session);
+    // Loggable origin only: never expose the source value or its fingerprint.
+    const char* mqttOverride = std::getenv("ACCLOUD_MQTT_AUTH_TOKEN");
+    context.mqttAuthSource = mqttAuthTokenOriginName(resolveMqttAuthTokenOrigin(
+        loaded.session, mqttOverride != nullptr && *mqttOverride != '\0'));
     context.mqttAuthToken = envOrFallback("ACCLOUD_MQTT_AUTH_TOKEN", optionalMqttAuthToken(loaded.session));
     context.email = envOrFallback("ACCLOUD_MQTT_EMAIL",
                                   firstNonEmptyToken(loaded.session, {"email", "user_email"}));
