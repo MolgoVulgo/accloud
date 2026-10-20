@@ -25,8 +25,21 @@ CTEST_NAMES = (
 
 # Test names are the Qt QuickTest methods actually executed by accloud_ui_qml.
 CONTROL_ROOM_TESTS = {
-    'test_main_menu_is_grouped_settings_session_help': (),
+    'test_main_menu_is_session_settings_help_with_one_grouped_dialog': (
+        'compare(String(menuBar.contentChildren[0].text), "Session")',
+        'compare(String(menuBar.contentChildren[1].text), "Settings")',
+        'verify(findObjectByName(window, "menuSettingsInterface") === null)',
+        'verify(findObjectByName(window, "settingsWorkerRatioCombo") !== null)',
+    ),
+    'test_render3d_worker_cpu_ratios_preserve_legacy_setting_and_follow_core_count': (
+        'compare(window.workerCountForRatio(1), 6)',
+        'compare(window.workerCountForRatio(4), 6)',
+        'compare(changedMachineWindow.render3dWorkerCount, 11)',
+        'compare(highCoreWindow.render3dWorkerCount, 30)',
+        'compare(restoredWindow.workerDisplayOptions().length, 4)',
+    ),
     'test_about_identity_and_source_link': ('github.com/MolgoVulgo',),
+    'test_preferences_inline_controls_and_checkbox_alignment': ('settingsThemePresetCombo', 'settingsRender3dPaletteCombo', 'check.indicator.y'),
     'test_session_dialog_skip_does_not_commit_or_persist': (),
     'test_session_dialog_unverified_cloud_is_not_marked_active': (),
     'test_printer_functions_card_visibility_and_feeding_modal_ui': (),

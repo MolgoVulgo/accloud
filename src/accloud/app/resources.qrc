@@ -25,6 +25,8 @@
     <file alias="qml/dialogs/UploadDraftDialog.qml">../ui/qml/dialogs/UploadDraftDialog.qml</file>
     <file alias="qml/dialogs/PrintDraftDialog.qml">../ui/qml/dialogs/PrintDraftDialog.qml</file>
     <file alias="qml/components/Theme.js">../ui/qml/components/Theme.js</file>
+    <file alias="qml/components/Theme.qml">../ui/qml/components/Theme.qml</file>
+    <file alias="qml/components/qmldir">../ui/qml/components/qmldir</file>
     <file alias="qml/components/AppButton.qml">../ui/qml/components/AppButton.qml</file>
     <file alias="qml/components/AppTextField.qml">../ui/qml/components/AppTextField.qml</file>
     <file alias="qml/components/AppComboBox.qml">../ui/qml/components/AppComboBox.qml</file>

@@ -16,6 +16,38 @@ def read_text(path: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def check_worker_ratio_combo_mapping(main_qml: str) -> list[str]:
+    """Guard the actual combo callback, not an obsolete index-to-ratio shortcut.
+
+    Worker ratios may collapse to a single visible option on small machines,
+    and a custom saved count may add an extra row. Consequently the combo
+    index is not necessarily the persisted ratio.
+    """
+    issues: list[str] = []
+    match = re.search(
+        r"AppComboBox\s*\{\s*id:\s*settingsWorkerRatioCombo\b"
+        r"(?P<body>.*?)^\s{16}\}\s*$",
+        main_qml,
+        flags=re.DOTALL | re.MULTILINE,
+    )
+    if match is None:
+        return ["MainWindow worker ratio selector block is missing"]
+
+    body = match.group("body")
+    for required in (
+        "model: root.workerDisplayOptions()",
+        "var options = root.workerDisplayOptions()",
+        "index < 0 || index >= options.length || options[index].value === 0",
+        "root.persistRender3dWorkerRatio(options[index].value)",
+        "root.workerOptionIndexForRatio(options[index].value)",
+    ):
+        if required not in body:
+            issues.append(f"MainWindow worker ratio selector mapping missing `{required}`")
+    if "root.persistRender3dWorkerRatio(index + 1)" in body:
+        issues.append("MainWindow worker ratio selector must not derive ratio from combo index")
+    return issues
+
+
 def find_raw_dialogs() -> list[pathlib.Path]:
     offenders: list[pathlib.Path] = []
     for path in QML_ROOT.rglob("*.qml"):
@@ -103,18 +135,34 @@ def check_tabs_geometry_v2() -> list[str]:
     main_text = read_text(main_window)
 
     menu_order = (
-        'objectName: "menuParametre"',
         'objectName: "menuSession"',
+        'objectName: "menuParametre"',
         'objectName: "menuHelp"',
     )
     menu_positions = [main_text.find(token) for token in menu_order]
     if any(position < 0 for position in menu_positions) or menu_positions != sorted(menu_positions):
-        issues.append("MainWindow top menu must remain ordered Settings -> Session -> Help")
+        issues.append("MainWindow top menu must remain ordered Session -> Settings -> Help")
+    for required_inline in (
+        'objectName: "settingsThemePresetCombo"',
+        'objectName: "settingsAccentPresetCombo"',
+        'objectName: "settingsLanguageCombo"',
+        'objectName: "settingsRender3dPaletteCombo"',
+        'objectName: "settingsRender3dPalettePreviewPart"',
+    ):
+        if required_inline not in main_text:
+            issues.append(f"MainWindow inline preferences missing {required_inline}")
+    for obsolete_dialog in ('id: themeDialog', 'id: languageDialog',
+                            'id: render3dPaletteDialog'):
+        if obsolete_dialog in main_text:
+            issues.append(f"MainWindow must not reopen nested preferences: {obsolete_dialog}")
     for required in (
-        'objectName: "menuSettingsInterface"',
-        'objectName: "menuSettingsPrinting"',
-        'objectName: "menuSettingsFilesUpload"',
-        'objectName: "menuSettingsViewer3d"',
+        'objectName: "menuSettingsOpen"',
+        'objectName: "settingsDialog"',
+        'objectName: "settingsTechnicalDetailsCheckBox"',
+        'objectName: "settingsDirectDeleteLocalOnFailureCheckBox"',
+        'objectName: "settingsPwszPreviewCompletionCheckBox"',
+        'objectName: "settingsPwszPreviewConfirmationCheckBox"',
+        'objectName: "settingsWorkerRatioCombo"',
         'objectName: "menuSessionImportHar"',
         'objectName: "menuHelpAbout"',
         "property bool viewer3dEnabled:",
@@ -122,8 +170,14 @@ def check_tabs_geometry_v2() -> list[str]:
     ):
         if required not in main_text:
             issues.append(f"MainWindow menu/viewer contract missing `{required}`")
+    issues.extend(check_worker_ratio_combo_mapping(main_text))
     for forbidden in (
         'objectName: "menuSettingsSession"',
+        'objectName: "menuSettingsInterface"',
+        'objectName: "menuSettingsPrinting"',
+        'objectName: "menuSettingsFilesUpload"',
+        'objectName: "menuSettingsViewer3d"',
+        'objectName: "render3dWorkersSpin"',
         'objectName: "menuSettingsMqttAuthMode"',
         'objectName: "menuSessionLocation"',
         'objectName: "menuSessionDetails"',
@@ -282,6 +336,57 @@ def check_tabs_geometry_v2() -> list[str]:
         if required not in app_tab_button_text:
             issues.append(f"AppTabButton missing v2 geometry rule `{required}`")
 
+    return issues
+
+
+def check_reactive_theme_contract() -> list[str]:
+    issues: list[str] = []
+    theme_qml = QML_ROOT / "components" / "Theme.qml"
+    qmldir = QML_ROOT / "components" / "qmldir"
+    resources = read_text(APP_ROOT / "resources.qrc")
+    main = read_text(QML_ROOT / "MainWindow.qml")
+    tests = read_text(REPO_ROOT / "tests/ui/qml/tst_control_room.qml")
+    if not theme_qml.is_file() or not qmldir.is_file():
+        return ["reactive Theme.qml singleton/qmldir is missing"]
+    singleton = read_text(theme_qml)
+    registrations = read_text(qmldir)
+    if "singleton Theme 1.0 Theme.qml" not in registrations:
+        issues.append("qmldir does not register reactive Theme singleton")
+    for component in (QML_ROOT / "components").glob("*.qml"):
+        if component.name == "Theme.qml":
+            continue
+        if f"{component.stem} 1.0 {component.name}" not in registrations:
+            issues.append(f"qmldir hides pre-existing component {component.name}")
+    for token in ('pragma Singleton', 'property string themeName:',
+                  'property string accentName:', 'readonly property var paletteTokens:',
+                  'readonly property var accentTokens:', 'readonly property color bgDialog:',
+                  'readonly property color fgPrimary:', 'readonly property color accent:'):
+        if token not in singleton:
+            issues.append(f"reactive theme singleton missing {token}")
+    for token in ('alias="qml/components/Theme.qml"', 'alias="qml/components/qmldir"'):
+        if token not in resources:
+            issues.append(f"resources.qrc missing {token}")
+    for source in QML_ROOT.rglob("*.qml"):
+        if source == theme_qml:
+            continue
+        text = read_text(source)
+        if 'Theme.js" as Theme' in text:
+            issues.append(f"non-reactive Theme.js import remains in {source.relative_to(REPO_ROOT)}")
+        if "Theme." in text and 'import "components"' not in text and 'import "../components"' not in text and 'import "."' not in text:
+            issues.append(f"Theme singleton not imported in {source.relative_to(REPO_ROOT)}")
+    for token in ('Theme.setThemePreset(candidateTheme)',
+                  'Theme.setAccent(candidateAccent)',
+                  'root.persistedThemeName = Theme.themeName'):
+        if token not in main:
+            issues.append(f"main theme preference no longer updates shared singleton: {token}")
+    for token in ('test_theme_and_accent_update_all_loaded_controls_without_reopening',
+                  'normalizedColor(dialog.background.color)',
+                  'normalizedColor(themeCombo.background.color)',
+                  'normalizedColor(tabs.panelColor)',
+                  'normalizedColor(themeCombo.background.border.color)',
+                  'themeCombo.activated(darkIndex)'):
+        if token not in tests:
+            issues.append(f"QML reactive theme regression missing {token}")
     return issues
 
 
@@ -464,25 +569,24 @@ def check_cloud_file_details_contract() -> list[str]:
     main_text = read_text(main_window)
     for required in (
         'ui.cloudFiles.showAdvancedDetails',
-        'objectName: "menuSettingsCloudFileAdvancedDetails"',
+        'objectName: "settingsTechnicalDetailsCheckBox"',
         'showAdvancedDetails: root.cloudFileAdvancedDetailsEnabled',
     ):
         if required not in main_text:
             issues.append(f"MainWindow cloud-file settings contract missing `{required}`")
 
-    menu_marker = 'objectName: "menuSettingsCloudFileAdvancedDetails"'
-    marker_index = main_text.find(menu_marker)
+    checkbox_marker = 'objectName: "settingsTechnicalDetailsCheckBox"'
+    marker_index = main_text.find(checkbox_marker)
     if marker_index >= 0:
-        next_item_index = main_text.find('\n            MenuItem {', marker_index + len(menu_marker))
-        menu_block = main_text[marker_index:next_item_index if next_item_index >= 0 else len(main_text)]
+        next_section = main_text.find('SectionHeader {', marker_index + len(checkbox_marker))
+        checkbox_block = main_text[marker_index:next_section if next_section >= 0 else len(main_text)]
         for required in (
-            'checkable: true',
             'checked: root.cloudFileAdvancedDetailsEnabled',
-            'root.persistCloudFileDetailsSetting(checked)',
+            'onToggled: root.persistCloudFileDetailsSetting(checked)',
         ):
-            if required not in menu_block:
+            if required not in checkbox_block:
                 issues.append(
-                    f"MainWindow advanced-details menu contract missing `{required}`"
+                    f"MainWindow advanced-details checkbox contract missing `{required}`"
                 )
 
     return issues
@@ -951,6 +1055,7 @@ def main() -> int:
     errors.extend(f"- {msg}" for msg in check_tabs_config())
     errors.extend(f"- {msg}" for msg in check_tabs_geometry_v2())
     errors.extend(f"- {msg}" for msg in check_tab_stroke_tokens())
+    errors.extend(f"- {msg}" for msg in check_reactive_theme_contract())
     errors.extend(f"- {msg}" for msg in check_form_components())
     errors.extend(f"- {msg}" for msg in check_runtime_status_rules())
     errors.extend(f"- {msg}" for msg in check_backend_message_contract())

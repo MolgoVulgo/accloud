@@ -682,8 +682,8 @@ MeshBuildResult LayerStackMesher::build(
     return result;
   }
   if (options.workerCount < kMinimumMeshWorkerCount
-      || options.workerCount > kMaximumMeshWorkerCount) {
-    result.error = "mesh worker count must be between 1 and 16";
+      || options.workerCount > maximumMeshWorkerCount()) {
+    result.error = "mesh worker count exceeds the CPU-reserved limit";
     return result;
   }
 

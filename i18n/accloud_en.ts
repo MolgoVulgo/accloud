@@ -2165,7 +2165,70 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <source>Printing</source>
             <translation>Printing</translation>
         </message>
-</context>
+
+    <message>
+        <source>Preferences...</source>
+        <translation>Preferences...</translation>
+    </message>
+    <message>
+        <source>Choose your preferences, grouped by topic. Changes are saved immediately.</source>
+        <translation>Choose your preferences, grouped by topic. Changes are saved immediately.</translation>
+    </message>
+    <message>
+        <source>Appearance, language and file details</source>
+        <translation>Appearance, language and file details</translation>
+    </message>
+    <message>
+        <source>Theme and accent...</source>
+        <translation>Theme and accent...</translation>
+    </message>
+    <message>
+        <source>Language...</source>
+        <translation>Language...</translation>
+    </message>
+    <message>
+        <source>Direct-print cleanup</source>
+        <translation>Direct-print cleanup</translation>
+    </message>
+    <message>
+        <source>PWSZ preview preparation</source>
+        <translation>PWSZ preview preparation</translation>
+    </message>
+    <message>
+        <source>Mesh generation and viewport colors</source>
+        <translation>Mesh generation and viewport colors</translation>
+    </message>
+    <message>
+        <source>Generation workers</source>
+        <translation>Generation workers</translation>
+    </message>
+    <message>
+        <source>Ratio %1/4 — %2 workers</source>
+        <translation>Ratio %1/4 — %2 workers</translation>
+    </message>
+    <message>
+        <source>%1 logical cores available. Ratios use 1/4, 2/4, 3/4 or 4/4 of cores, rounded up and limited to 16 workers. New PWSZ loads only.</source>
+        <translation>%1 logical cores available. Ratios use 1/4, 2/4, 3/4 or 4/4 of cores, rounded up and limited to 16 workers. New PWSZ loads only.</translation>
+    </message>
+    <message>
+        <source>3D colors...</source>
+        <translation>3D colors...</translation>
+    </message>
+
+        <message>
+            <source>%1 logical cores detected. Two cores are reserved; worker counts range from %2 to %3. Changes apply to new PWSZ loads.</source>
+            <translation>%1 logical cores detected. Two cores are reserved; worker counts range from %2 to %3. Changes apply to new PWSZ loads.</translation>
+        </message>
+        <message>
+            <source>3D colors</source>
+            <translation>3D colors</translation>
+        </message>
+    
+        <message>
+            <source>Saved custom setting — %1 workers</source>
+            <translation>Saved custom setting — %1 workers</translation>
+        </message>
+    </context>
     <context>
         <name>MqttPage</name>
         <message>

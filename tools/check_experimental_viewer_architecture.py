@@ -57,6 +57,69 @@ def normalized_cmake_sources(body: str) -> set[str]:
     return sources
 
 
+def check_worker_preferences_contract(main_qml: str, qml_test: str) -> list[str]:
+    """Guard the CPU-ratio worker preferences without reviving the old 1..16 dialog.
+
+    The engine reserves two logical CPU slots and has no hardcoded 16 cap.
+    UI ratios are deduplicated; legacy absolutes are clamped safely.
+    """
+    errors: list[str] = []
+    for token in (
+        'objectName: "settingsDialog"',
+        'objectName: "settingsWorkerRatioCombo"',
+        'property int render3dWorkerRatio: 0',
+        'property int availableLogicalCores:',
+        'render3dWorkerRatioSettingsKey: "render3d.workerRatio"',
+        'function normalizeRender3dWorkerCount(value)',
+         'function maximumRender3dWorkers()',
+        'root.availableLogicalCores - 2',
+        'function minimumRender3dWorkers()',
+        'root.availableLogicalCores >= 8 ? 6 : 1',
+        'function normalizeRender3dWorkerRatio(value)',
+        'function workerCountForRatio(ratio)',
+        'Math.ceil(root.maximumRender3dWorkers() * normalized / 4)',
+        'function workerRatioOptions()',
+        'for (var ratio = 1; ratio <= 4; ++ratio)',
+        'options[options.length - 1].workers === count',
+        'model: root.workerDisplayOptions()',
+        'function workerDisplayOptions()',
+        'root.persistRender3dWorkerRatio(options[index].value)',
+        'function persistRender3dWorkerRatio(value)',
+        'root.render3dWorkerCount = root.workerCountForRatio(ratio)',
+        'uiSettingsBridge.setString(root.render3dWorkerRatioSettingsKey, String(ratio))',
+        'uiSettingsBridge.setString(root.render3dWorkerCountSettingsKey,',
+    ):
+        if token not in main_qml:
+            errors.append(f"missing CPU-ratio viewer preference QML token: {token}")
+    for obsolete in (
+        'objectName: "menuSettingsRender3dWorkers"',
+        'objectName: "render3dWorkersDialog"',
+    ):
+        if obsolete in main_qml:
+            errors.append(f"obsolete absolute-worker settings dialog remains in MainWindow.qml: {obsolete}")
+
+    for token in (
+        'test_render3d_worker_cpu_ratios_preserve_legacy_setting_and_follow_core_count',
+        'test_preferences_inline_controls_and_checkbox_alignment',
+        'compare(combo.count, 1)',
+        'compare(window.workerCountForRatio(1), 6)',
+        'compare(window.workerCountForRatio(4), 6)',
+        'compare(restoredWindow.render3dWorkerCount, 7)',
+        'compare(restoredWindow.workerRatioOptions().length, 3)',
+        'compare(restoredWindow.workerDisplayOptions().length, 4)',
+        'compare(changedMachineWindow.render3dWorkerCount, 11)',
+        'compare(highCoreWindow.render3dWorkerCount, 30)',
+        'compare(highCoreWindow.workerCountForRatio(1), 8)',
+        'compare(highCoreWindow.workerCountForRatio(4), 30)',
+        'compare(smallWindow.render3dWorkerCount, 2)',
+        'uiSettingsBridge.values["render3d.workerRatio"]',
+        'uiSettingsBridge.values["render3d.workerCount"]',
+    ):
+        if token not in qml_test:
+            errors.append(f"QML regression is missing CPU-ratio worker assertion: {token}")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -310,7 +373,8 @@ def main() -> int:
         errors.append("LayerStackMesher must keep an explicit layerStride option")
     for token in (
         "kMinimumMeshWorkerCount = 1",
-        "kMaximumMeshWorkerCount = 16",
+        "maximumMeshWorkerCountForCores(",
+        "maximumMeshWorkerCount() noexcept",
         "std::size_t workerCount = 4",
         "std::size_t chunkLayerCount = 8",
         "MeshWorkerStats",
@@ -415,12 +479,8 @@ def main() -> int:
     for token in (
         "viewer3dEnabled",
         "viewerEnabled: root.viewer3dEnabled",
-        "render3dWorkerCount: 4",
+        "render3dWorkerCount: 6",
         'render3dWorkerCountSettingsKey: "render3d.workerCount"',
-        'objectName: "menuSettingsRender3dWorkers"',
-        'objectName: "render3dWorkersDialog"',
-        'from: 1',
-        'to: 16',
         "render3dWorkerCount: root.render3dWorkerCount",
     ):
         if token not in main_qml:
@@ -633,6 +693,7 @@ def main() -> int:
             errors.append("viewer dialog actions must remain in header/trailing footer groups")
 
     qml_test = read(root / "tests/ui/qml/tst_control_room.qml")
+    errors.extend(check_worker_preferences_contract(main_qml, qml_test))
     for object_name in (
         "render3dDefaultsDialog",
             "viewerDraftDialog",
@@ -646,9 +707,6 @@ def main() -> int:
     for token in (
         "test_viewer3d_is_a_file_action_not_a_tab",
         "test_cloud_file_row_routes_pwsz_viewer_action",
-        "test_render3d_worker_setting_defaults_to_four_and_persists_bounds",
-        'uiSettingsBridge.values["render3d.workerCount"]',
-        'findObjectByName(window, "menuSettingsRender3dWorkers")',
         'findObjectByName(row, "fileRowViewerButton")',
         'compare(disabledRowButton.visible, true)',
         'compare(disabledRowButton.enabled, false)',
@@ -697,7 +755,7 @@ def main() -> int:
             "--chunk-layers",
             "--output-prefix",
             "--self-test",
-            "workerCounts{4, 8, 16}",
+            "defaultWorkerCounts()",
             "chunkLayerCounts{8, 16, 32}",
             "generated geometry differs between worker runs for chunk size",
         ):

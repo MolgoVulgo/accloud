@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import "../components/Theme.js" as Theme
+
 import "../components"
 
 Rectangle {
@@ -242,7 +242,6 @@ Rectangle {
                     width: root.actionDownloadWidth
                     onClicked: root.downloadRequested(root.fileId, root.fileName)
                 }
-
 
                 AppButton {
                     objectName: "fileRowViewerButton"

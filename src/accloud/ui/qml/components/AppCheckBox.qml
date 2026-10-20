@@ -1,11 +1,12 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
-import "Theme.js" as Theme
+import "."
 
 CheckBox {
     id: root
 
     spacing: 8
+    implicitHeight: Math.max(Theme.controlHeight, contentItem.implicitHeight + topPadding + bottomPadding)
     hoverEnabled: true
     focusPolicy: Qt.TabFocus
     font.pixelSize: Theme.fontBodyPx
@@ -15,6 +16,8 @@ CheckBox {
     }
 
     indicator: Rectangle {
+        x: root.leftPadding
+        y: Math.round((root.height - height) / 2)
         implicitWidth: 18
         implicitHeight: 18
         radius: 4
@@ -34,10 +37,11 @@ CheckBox {
 
     contentItem: Text {
         text: root.text
-        leftPadding: root.indicator.width + root.spacing
+        leftPadding: root.leftPadding + root.indicator.width + root.spacing
         color: root.enabled ? Theme.fgPrimary : Theme.fgDisabled
         font: root.font
         verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
+        wrapMode: Text.WordWrap
+        elide: Text.ElideNone
     }
 }

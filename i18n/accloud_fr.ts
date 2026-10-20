@@ -2319,7 +2319,70 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>Printing</source>
             <translation>Impression</translation>
         </message>
-</context>
+
+    <message>
+        <source>Preferences...</source>
+        <translation>Préférences…</translation>
+    </message>
+    <message>
+        <source>Choose your preferences, grouped by topic. Changes are saved immediately.</source>
+        <translation>Choisissez vos préférences par thème. Les modifications sont enregistrées immédiatement.</translation>
+    </message>
+    <message>
+        <source>Appearance, language and file details</source>
+        <translation>Apparence, langue et détails des fichiers</translation>
+    </message>
+    <message>
+        <source>Theme and accent...</source>
+        <translation>Thème et accent…</translation>
+    </message>
+    <message>
+        <source>Language...</source>
+        <translation>Langue…</translation>
+    </message>
+    <message>
+        <source>Direct-print cleanup</source>
+        <translation>Nettoyage après impression directe</translation>
+    </message>
+    <message>
+        <source>PWSZ preview preparation</source>
+        <translation>Préparation des aperçus PWSZ</translation>
+    </message>
+    <message>
+        <source>Mesh generation and viewport colors</source>
+        <translation>Génération du maillage et couleurs de la visionneuse</translation>
+    </message>
+    <message>
+        <source>Generation workers</source>
+        <translation>Workers de génération</translation>
+    </message>
+    <message>
+        <source>Ratio %1/4 — %2 workers</source>
+        <translation>Ratio %1/4 — %2 workers</translation>
+    </message>
+    <message>
+        <source>%1 logical cores available. Ratios use 1/4, 2/4, 3/4 or 4/4 of cores, rounded up and limited to 16 workers. New PWSZ loads only.</source>
+        <translation>%1 cœurs logiques disponibles. Ratios : 1/4, 2/4, 3/4 ou 4/4 des cœurs, arrondis au supérieur et limités à 16 workers. Uniquement pour les prochains PWSZ.</translation>
+    </message>
+    <message>
+        <source>3D colors...</source>
+        <translation>Couleurs 3D…</translation>
+    </message>
+
+        <message>
+            <source>%1 logical cores detected. Two cores are reserved; worker counts range from %2 to %3. Changes apply to new PWSZ loads.</source>
+            <translation>%1 cœurs logiques détectés. Deux cœurs sont réservés ; entre %2 et %3 workers. Les changements s’appliquent aux nouveaux PWSZ.</translation>
+        </message>
+        <message>
+            <source>3D colors</source>
+            <translation>Couleurs 3D</translation>
+        </message>
+    
+        <message>
+            <source>Saved custom setting — %1 workers</source>
+            <translation>Réglage personnalisé conservé — %1 workers</translation>
+        </message>
+    </context>
     <context>
         <name>MqttPage</name>
         <message>

@@ -620,9 +620,15 @@ int main() {
   invalidWorkerCount.workerCount = 0;
   ok &= require(!mesher.build(source, {0, 3}, invalidWorkerCount).ok,
                 "zero mesh workers must be rejected explicitly");
-  invalidWorkerCount.workerCount = 17;
+  invalidWorkerCount.workerCount = accloud::render3d::maximumMeshWorkerCount() + 1;
   ok &= require(!mesher.build(source, {0, 3}, invalidWorkerCount).ok,
-                "more than sixteen mesh workers must be rejected explicitly");
+                "worker counts over CPU-reserved maximum must be rejected explicitly");
+  ok &= require(accloud::render3d::maximumMeshWorkerCountForCores(8) == 6
+                    && accloud::render3d::maximumMeshWorkerCountForCores(12) == 10
+                    && accloud::render3d::maximumMeshWorkerCountForCores(16) == 14
+                    && accloud::render3d::maximumMeshWorkerCountForCores(32) == 30
+                    && accloud::render3d::maximumMeshWorkerCountForCores(2) == 1,
+                "mesh worker budget must reserve two logical cores without a fixed 16 cap");
 
   accloud::render3d::MeshBuildOptions invalidStride = options;
   invalidStride.layerStride = 0;

@@ -678,7 +678,7 @@ void QmlGlItem::setWorkerCount(int count) {
   count = std::clamp(
       count,
       static_cast<int>(kMinimumMeshWorkerCount),
-      static_cast<int>(kMaximumMeshWorkerCount));
+      static_cast<int>(maximumMeshWorkerCount()));
   if (workerCount_ == count) {
     return;
   }
@@ -1145,7 +1145,7 @@ void QmlGlItem::load() {
         options.workerCount = static_cast<std::size_t>(std::clamp(
             workerCount,
             static_cast<int>(kMinimumMeshWorkerCount),
-            static_cast<int>(kMaximumMeshWorkerCount)));
+            static_cast<int>(maximumMeshWorkerCount())));
         options.cutSurfaceMode = CutSurfaceMode::Open;
 
         const auto meshStarted = std::chrono::steady_clock::now();

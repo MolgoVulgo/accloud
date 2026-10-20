@@ -16,25 +16,18 @@ qrc:/qml/MainWindow.qml
 
 ### Main menu
 
-The top-level order is fixed to **Settings**, **Session**, **Help**. Settings are grouped instead of exposed as a flat list:
+The top-level order is fixed to **Session**, **Settings**, **Help**. **Settings > Preferences...** opens one scrollable dialog grouped by topic; there are no nested settings menus:
 
 ```text
-Settings
-├─ Interface
-│  ├─ Theme
-│  ├─ Language
-│  └─ Show technical file details
-├─ Printing
-│  └─ Delete printer-local copy when a direct print fails
-├─ Files / Upload
-│  ├─ Complete PWSZ previews before upload
-│  └─ Confirm before modifying PWSZ files
-└─ 3D Viewer
-   ├─ 3D generation workers
-   └─ 3D colors
-
 Session
 └─ Import HAR...
+
+Settings
+└─ Preferences... (one dialog)
+   ├─ Interface: theme/accent, language, technical file details
+   ├─ Printing: failed direct-print local cleanup
+   ├─ Files / Upload: PWSZ preview completion and confirmation
+   └─ 3D Viewer: CPU worker ratio, color preset
 
 Help
 └─ About (accloud identity, version, GitHub link and independence notice)
@@ -93,9 +86,11 @@ Recent jobs remain text-only and never resolve thumbnails or depend on the origi
 
 The toolbar distinguishes **Add to cloud** from **Direct print**. Standard upload ends after cloud registration and never presents a post-print cleanup option. Direct print keeps the selected local file as an operation input, checks printer compatibility by extension, uploads it, then automatically sends the print order after the cloud file becomes ready. Its cleanup checkbox belongs to that single operation: after a confirmed successful print, ACM deletes the exact printer-local file first and deletes the cloud file only after MQTT confirms `deleteLocal`.
 
-The **Settings > Printing** submenu includes **Delete printer-local copy when a direct print fails**, disabled by default. Its value is snapshotted when a direct operation is launched and has no effect on standard uploads, cloud-list printing, or direct prints without cleanup selected. For a direct task that actually reached the active state and later ends with status 3 or 4, enabling the preference permits only the exact printer-local copy to be removed; the cloud file is always retained on failure, stop or cancellation.
+The **Settings > Preferences > Printing** section includes **Delete printer-local copy when a direct print fails**, disabled by default. Its value is snapshotted when a direct operation is launched and has no effect on standard uploads, cloud-list printing, or direct prints without cleanup selected. For a direct task that actually reached the active state and later ends with status 3 or 4, enabling the preference permits only the exact printer-local copy to be removed; the cloud file is always retained on failure, stop or cancellation.
 
-The **Settings > 3D Viewer** submenu exposes **3D generation workers** and **3D colors** as standard viewer settings. The persisted `render3d.workerCount` value defaults to `4`, is clamped to `1..16`, and is applied to every newly loaded PWSZ. Increasing it raises CPU and memory pressure; changing it does not alter a mesh already being generated.
+The **Settings > Preferences... > 3D Viewer** section offers CPU ratios **1/4, 2/4, 3/4, 4/4** without opening another settings dialog. The worker ceiling is `max(1, logical cores - 2)`; the UI minimum is six when at least eight cores are detected, otherwise one. Each ratio is applied to the ceiling, rounded upward and bounded; equivalent worker counts appear only once. `QThread::idealThreadCount()` supplies the logical-core count; the test-only fallback uses eight cores. `render3d.workerRatio` (1..4) is persisted and recalculated when core availability changes; `render3d.workerCount` is the normalized absolute runtime value. Valid legacy absolute counts remain unchanged until an explicit ratio choice, with an accurate custom label when no ratio corresponds. On at least eight cores a missing/invalid persisted count defaults to six. Increasing workers raises CPU/memory pressure; changes affect new PWSZ loads only. Theme, language and 3D palette controls now appear inline, with a palette preview and immediately persisted settings; checkboxes share aligned full-width rows.
+
+The **Theme** and **Accent** choices take effect immediately across the open desktop, including already visible pages, menus, controls and dialogs. `Theme.qml` is a reactive QML singleton backed by the existing `Theme.js` palette definitions; switching either value propagates changed color properties without recreating the window or restarting the application. Both selections remain persisted under `ui.themeName` and `ui.accentName`.
 
 The persisted `render3d.palettePreset` value selects one of five paired part/background palettes: `technical_cyan`, `industrial_amber`, `mineral_ivory`, `night_coral` or `light_graphite`. Invalid persisted values are normalized to `technical_cyan`. Applying a preset updates both colors together, propagates to an already open viewer, and schedules only a repaint through the existing `meshColor` and `backgroundColor` properties; it does not reload the PWSZ or rebuild the mesh. Free-form color entry is not exposed.
 
@@ -105,7 +100,7 @@ The viewer camera keeps zoom distances finite even for extreme mouse-wheel or to
 
 Direct-print persistence, project reconciliation and cleanup state transitions are owned by `PrintWorkflowBridge`, backed by `PendingDirectPrintStore` and the typed `DirectPrintLifecycleUseCase`. QML only registers an accepted direct print and forwards refreshed project snapshots to the workflow; it no longer keeps a direct-print cleanup map, matches projects, dispatches printer-local deletion, correlates cloud deletion, or interprets cleanup transitions. `CloudBridge` no longer exposes direct-print persistence methods. Asynchronous printer-order correlation uses a structured `QVariantMap` context (`kind` plus typed fields) instead of concatenated identifiers parsed with string prefixes or `split(":")`. MQTT `deleteLocal` confirmations are wired directly from `MqttBridge` to `PrintWorkflowBridge`; the bridge owns the pending `msgId` correlation and both local/cloud delete in-flight state. Direct local/cloud transport intents are wired from the workflow to `CloudBridge` in the desktop bootstrap, while QML receives only semantic cleanup notices and tracking-release signals. Standard cloud-list printing uses the same workflow boundary for post-print cleanup: QML only reports the completed printer task, `PrintWorkflowBridge` requests deletion of the printer-local file first, requests cloud deletion only after the local order succeeds, and emits semantic completion/failure notices. The QML pending remote-print map remains only as a temporary visual telemetry placeholder for an accepted print until live project data arrives.
 
-PWSZ preview completion is controlled by two persisted settings: completion itself is enabled by default, and confirmation before permanent local replacement is enabled by default. The confirmation dialog explains that `preview_1.png` is copied to `preview_2.png`, the prepared version is uploaded, and the local file is replaced only after cloud success. “Do not ask again” disables only the confirmation; both settings remain available from **Settings > Files / Upload**.
+PWSZ preview completion is controlled by two persisted settings: completion itself is enabled by default, and confirmation before permanent local replacement is enabled by default. The confirmation dialog explains that `preview_1.png` is copied to `preview_2.png`, the prepared version is uploaded, and the local file is replaced only after cloud success. “Do not ask again” disables only the confirmation; both settings remain available from **Settings > Preferences > Files / Upload**.
 
 
 The deferred direct-print initiative has a pure C++ preparation safety policy (`DirectPrintPreparationPolicy.h`) with dedicated tests. It defines independent cloud readiness verification, printer rechecks, durable reservation before sending, restart behavior and conservative handling of uncertain HTTP results. **This policy is not yet connected to the active upload/print workflow**; the existing direct-print runtime behavior remains unchanged in this stage.
@@ -161,10 +156,17 @@ Progress phases cross the bridge as stable keys (`pwsz.update.*`) and are transl
 
 The details dialog prioritizes information useful for printing: the locally resolved preview, format, size, upload date, translated status, machine, material, duration, layer profile, exposure, resin usage and compatible printers. The preview and eight primary values are grouped in a compact fixed-height summary so the tabbed detail area always remains visible. QML consumes only the thumbnail source already resolved by the bridge cache and does not retry remote image URLs.
 
-The persistent `ui.cloudFiles.showAdvancedDetails` option, exposed from **Settings > Show technical file details**, adds a technical tab for file identifiers, status code, technical timestamps, region and slice MD5. It defaults to disabled in production and enabled with `--debug-ui`, unless the user has already persisted a value.
+The persistent `ui.cloudFiles.showAdvancedDetails` option, exposed from **Settings > Preferences > Interface > Show technical file details**, adds a technical tab for file identifiers, status code, technical timestamps, region and slice MD5. It defaults to disabled in production and enabled with `--debug-ui`, unless the user has already persisted a value.
 
 A separate **Cloud Metadata** tab is visible only in development builds with `ACCLOUD_DEBUG` enabled. It exposes the raw cloud identity, timestamps, region, bucket and object path required for diagnosis. Signed download URLs and local thumbnail-cache paths are never rendered. Every tab uses two equal-width cards that share the full available panel height. Detail rows keep their natural height with fixed compact spacing and remain grouped at the top of each card; only the unused area below the final row expands. Panels scroll only when their content actually overflows. No rename action is exposed because no observed Anycubic rename endpoint is part of the runtime contract. Delete remains isolated on the left of the footer, while the consistently sized Close, Download and Print actions are ordered on the right so Print remains the final primary action.
 
 ## Release-candidate language and status contract
 
 The `PrinterPage`, `PrinterDetailPanel`, cloud-file workflow and main menu QML strings are checked against both root TS catalogs by `accloud_release_candidate_contract`. French translations must be nonempty, and English entries must exist; the English-source fallback remains supported for historical unfinished translations. Following HTTP order acceptance, the printer remains in its last confirmed state and displays a separate telemetry-waiting indicator. A pending order is **not** proof of active printing.
+
+
+### Consolidated preferences and CPU-reserved workers (patch 0009)
+
+**Session → Settings → Help** remains the menu order. Settings → Preferences contains Theme, Accent, Language and the five 3D palette choices inline, with an inline part/background preview; no secondary settings dialogs are opened. The four boolean choices use aligned, full-width checkbox rows. Selections persist immediately through the existing bridges.
+
+The 3D mesh worker capacity reserves two logical CPU slots: maximum `max(1, logical_cores - 2)`. On machines reporting at least eight cores, the minimum is six; on smaller machines it is one. The four ratios are `ceil(maximum * ratio/4)` bounded by the minimum and maximum, and entries with equal worker counts collapse to the highest equivalent ratio. For 8/12/16/32 cores the maximum is 6/10/14/30 respectively. `render3d.workerCount` remains readable for historical settings but is normalized to available capacity. The native mesher and QML render item use the same CPU-reserved limit instead of a fixed 16. Counts control worker threads, not CPU affinity: two physical cores cannot be guaranteed idle. Changes take effect on new PWSZ loads only.

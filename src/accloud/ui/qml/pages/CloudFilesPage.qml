@@ -3,7 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtCore
 import Accloud.Models 1.0
-import "../components/Theme.js" as Theme
+
 import "../components"
 
 Item {
@@ -255,7 +255,6 @@ Item {
         return lines.join("\n")
     }
 
-
     function booleanSetting(key, defaultValue) {
         if (!hasUiSettingsBridge())
             return defaultValue === true
@@ -454,7 +453,6 @@ Item {
         return name
     }
 
-
     function refreshTypeFilterOptions() {
         var sortedExt = cloudFilesModel.availableFileTypes(supportedExtensions)
 
@@ -547,8 +545,6 @@ Item {
         return value.length > 0 ? value : "-"
     }
 
-
-
     function fileDataById(fileId) {
         var entry = cloudFilesModel.fileDataById(String(fileId || ""))
         return entry && Object.keys(entry).length > 0 ? entry : null
@@ -562,7 +558,6 @@ Item {
         }
         return -1
     }
-
 
     function setFileSelected(fileId, fileName, checked) {
         var normalizedId = String(fileId || "").trim()
@@ -767,9 +762,6 @@ Item {
             root.statusSev = "warn"
         }
     }
-
-
-
 
     function applyBatchDeleteSummary() {
         if (!batchDeleteSummaryPending)
@@ -1178,7 +1170,6 @@ Item {
             root.applyDownloadUrlResult(fileId, result)
         }
 
-
         function onUploadProgressChanged(progress, phase) {
             uploadOverlay.progress = Math.max(0, Math.min(1, Number(progress)))
             uploadOverlay.phase = String(phase || "")
@@ -1363,7 +1354,6 @@ Item {
             root.applyDeleteResult(fileId, result)
         }
     }
-
 
     AppDialogFrame {
         id: pwszPreviewConfirmDialog

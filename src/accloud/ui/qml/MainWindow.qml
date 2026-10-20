@@ -1,7 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
-import "components/Theme.js" as Theme
+
 import "components"
 import "pages" as Pages
 import "dialogs" as Dialogs
@@ -35,13 +35,21 @@ ApplicationWindow {
     property bool pwszPreviewConfirmationEnabled: true
     property bool cloudFileAdvancedDetailsEnabled: false
     property bool directDeleteLocalOnFailureEnabled: false
-    property int render3dWorkerCount: 4
+    property int render3dWorkerCount: 6
+    // Zero denotes a legacy absolute worker setting, not a selected CPU ratio.
+    property int render3dWorkerRatio: 0
+    property int availableLogicalCores: {
+        var count = (typeof accloudAvailableLogicalCores !== "undefined")
+                    ? Number(accloudAvailableLogicalCores) : 8
+        return isFinite(count) && count >= 1 ? Math.floor(count) : 8
+    }
     property string render3dPalettePreset: "technical_cyan"
     readonly property color render3dPartColor: root.render3dPaletteFor(root.render3dPalettePreset).partColor
     readonly property color render3dBackgroundColor: root.render3dPaletteFor(root.render3dPalettePreset).backgroundColor
     readonly property string directDeleteLocalOnFailureSettingsKey: "printing.directDeleteLocalOnFailure"
     readonly property string cloudFileAdvancedDetailsSettingsKey: "ui.cloudFiles.showAdvancedDetails"
     readonly property string render3dWorkerCountSettingsKey: "render3d.workerCount"
+    readonly property string render3dWorkerRatioSettingsKey: "render3d.workerRatio"
     readonly property string render3dPalettePresetSettingsKey: "render3d.palettePreset"
 
     function hasUiSettingsBridge() {
@@ -160,11 +168,113 @@ ApplicationWindow {
         root.persistedLanguageCode = String(appI18nBridge.languageCode || "system")
     }
 
+    function maximumRender3dWorkers() {
+        return Math.max(1, root.availableLogicalCores - 2)
+    }
+
+    function minimumRender3dWorkers() {
+        return root.availableLogicalCores >= 8 ? 6 : 1
+    }
+
     function normalizeRender3dWorkerCount(value) {
         var parsed = Number(value)
         if (!isFinite(parsed))
-            parsed = 4
-        return Math.max(1, Math.min(16, Math.round(parsed)))
+            parsed = 6
+        return Math.max(root.minimumRender3dWorkers(),
+                        Math.min(root.maximumRender3dWorkers(), Math.round(parsed)))
+    }
+
+    function normalizeRender3dWorkerRatio(value) {
+        var parsed = Number(value)
+        return isFinite(parsed) && Math.floor(parsed) === parsed
+                && parsed >= 1 && parsed <= 4 ? parsed : 0
+    }
+
+    function workerCountForRatio(ratio) {
+        var normalized = root.normalizeRender3dWorkerRatio(ratio)
+        if (normalized === 0)
+            return root.normalizeRender3dWorkerCount(root.render3dWorkerCount)
+        return root.normalizeRender3dWorkerCount(
+                    Math.ceil(root.maximumRender3dWorkers() * normalized / 4))
+    }
+
+    function workerRatioForCount(count) {
+        var best = 1
+        var bestDistance = Math.abs(root.workerCountForRatio(1) - count)
+        for (var ratio = 2; ratio <= 4; ++ratio) {
+            var distance = Math.abs(root.workerCountForRatio(ratio) - count)
+            if (distance <= bestDistance) {
+                best = ratio
+                bestDistance = distance
+            }
+        }
+        return best
+    }
+
+    function workerRatioOptions() {
+        var options = []
+        // Duplicate worker counts are collapsed; the highest equivalent ratio wins.
+        for (var ratio = 1; ratio <= 4; ++ratio) {
+            var count = root.workerCountForRatio(ratio)
+            var label = qsTr("Ratio %1/4 — %2 workers").arg(ratio).arg(count)
+            if (options.length > 0 && options[options.length - 1].workers === count) {
+                options[options.length - 1] = {"value": ratio, "workers": count, "label": label}
+            } else {
+                options.push({"value": ratio, "workers": count, "label": label})
+            }
+        }
+        return options
+    }
+
+    function workerDisplayOptions() {
+        var options = root.workerRatioOptions()
+        if (root.render3dWorkerRatio === 0) {
+            var saved = root.render3dWorkerCount
+            var matched = false
+            for (var i = 0; i < options.length; ++i) {
+                if (options[i].workers === saved) {
+                    matched = true
+                    break
+                }
+            }
+            if (!matched)
+                options.unshift({"value": 0, "workers": saved,
+                                 "label": qsTr("Saved custom setting — %1 workers").arg(saved)})
+        }
+        return options
+    }
+
+    function workerOptionIndexForRatio(ratio) {
+        var options = root.workerDisplayOptions()
+        if (ratio === 0) {
+            for (var oldIndex = 0; oldIndex < options.length; ++oldIndex) {
+                if (options[oldIndex].workers === root.render3dWorkerCount)
+                    return oldIndex
+            }
+        }
+        var count = root.workerCountForRatio(ratio)
+        for (var index = 0; index < options.length; ++index) {
+            if (options[index].workers === count)
+                return index
+        }
+        return 0
+    }
+
+    function languageOptions() {
+        return [
+            {"value": "system", "label": qsTr("System default")},
+            {"value": "en", "label": qsTr("English")},
+            {"value": "fr", "label": qsTr("French")}
+        ]
+    }
+
+    function languageOptionIndex(code) {
+        var options = root.languageOptions()
+        for (var i = 0; i < options.length; ++i) {
+            if (options[i].value === code)
+                return i
+        }
+        return 0
     }
 
     function render3dPaletteOptions() {
@@ -233,26 +343,52 @@ ApplicationWindow {
     }
 
     function loadRender3dSettings() {
-        var configured = 4
+        var configured = 6
+        var ratio = 0
         var palettePreset = "technical_cyan"
         if (root.hasUiSettingsBridge()) {
             configured = root.normalizeRender3dWorkerCount(uiSettingsBridge.getString(
-                    root.render3dWorkerCountSettingsKey, "4"))
+                    root.render3dWorkerCountSettingsKey, "6"))
+            var savedRatio = String(uiSettingsBridge.getString(
+                    root.render3dWorkerRatioSettingsKey, ""))
+            ratio = savedRatio.length > 0 ? root.normalizeRender3dWorkerRatio(savedRatio) : 0
+            if (ratio !== 0)
+                configured = root.workerCountForRatio(ratio)
             palettePreset = root.normalizeRender3dPalettePreset(uiSettingsBridge.getString(
                     root.render3dPalettePresetSettingsKey, "technical_cyan"))
             uiSettingsBridge.setString(root.render3dWorkerCountSettingsKey, String(configured))
+            uiSettingsBridge.setString(root.render3dWorkerRatioSettingsKey,
+                                       ratio !== 0 ? String(ratio) : "")
             uiSettingsBridge.setString(root.render3dPalettePresetSettingsKey, palettePreset)
             if (typeof uiSettingsBridge.sync === "function")
                 uiSettingsBridge.sync()
         }
         root.render3dWorkerCount = configured
+        root.render3dWorkerRatio = ratio
         root.render3dPalettePreset = palettePreset
     }
 
     function persistRender3dWorkerCount(value) {
         root.render3dWorkerCount = root.normalizeRender3dWorkerCount(value)
+        root.render3dWorkerRatio = 0
         if (!root.hasUiSettingsBridge())
             return
+        uiSettingsBridge.setString(root.render3dWorkerCountSettingsKey,
+                                   String(root.render3dWorkerCount))
+        uiSettingsBridge.setString(root.render3dWorkerRatioSettingsKey, "")
+        if (typeof uiSettingsBridge.sync === "function")
+            uiSettingsBridge.sync()
+    }
+
+    function persistRender3dWorkerRatio(value) {
+        var ratio = root.normalizeRender3dWorkerRatio(value)
+        if (ratio === 0)
+            return
+        root.render3dWorkerRatio = ratio
+        root.render3dWorkerCount = root.workerCountForRatio(ratio)
+        if (!root.hasUiSettingsBridge())
+            return
+        uiSettingsBridge.setString(root.render3dWorkerRatioSettingsKey, String(ratio))
         uiSettingsBridge.setString(root.render3dWorkerCountSettingsKey,
                                    String(root.render3dWorkerCount))
         if (typeof uiSettingsBridge.sync === "function")
@@ -379,7 +515,6 @@ ApplicationWindow {
         })
     }
 
-
     Connections {
         target: (typeof sessionImportBridge !== "undefined"
                  && sessionImportBridge !== null) ? sessionImportBridge : null
@@ -407,123 +542,6 @@ ApplicationWindow {
         objectName: "mainMenuBar"
 
         Menu {
-            objectName: "menuParametre"
-            title: qsTr("Settings")
-
-            Menu {
-                objectName: "menuSettingsInterface"
-                title: qsTr("Interface")
-
-                MenuItem {
-                    objectName: "menuSettingsTheme"
-                    text: qsTr("Theme")
-                    onTriggered: {
-                        root.statusText = qsTr("Opening theme settings panel.")
-                        themeDialog.open()
-                    }
-                }
-
-                MenuItem {
-                    objectName: "menuSettingsLanguage"
-                    text: qsTr("Language")
-                    onTriggered: {
-                        root.statusText = qsTr("Opening language settings panel.")
-                        languageDialog.open()
-                    }
-                }
-
-                MenuSeparator {}
-
-                MenuItem {
-                    objectName: "menuSettingsCloudFileAdvancedDetails"
-                    text: qsTr("Show technical file details")
-                    checkable: true
-                    checked: root.cloudFileAdvancedDetailsEnabled
-                    onTriggered: {
-                        root.persistCloudFileDetailsSetting(checked)
-                        root.statusText = checked
-                                ? qsTr("Technical file details enabled.")
-                                : qsTr("Technical file details hidden.")
-                    }
-                }
-            }
-
-            Menu {
-                objectName: "menuSettingsPrinting"
-                title: qsTr("Printing")
-
-                MenuItem {
-                    objectName: "menuSettingsDirectDeleteLocalOnFailure"
-                    text: qsTr("Delete printer-local copy when a direct print fails")
-                    checkable: true
-                    checked: root.directDeleteLocalOnFailureEnabled
-                    onTriggered: {
-                        root.persistDirectPrintFailureCleanup(checked)
-                        root.statusText = checked
-                                ? qsTr("Failed direct prints will remove the printer-local copy when cleanup was requested.")
-                                : qsTr("Failed direct prints will keep the printer-local copy.")
-                    }
-                }
-            }
-
-            Menu {
-                objectName: "menuSettingsFilesUpload"
-                title: qsTr("Files / Upload")
-
-                MenuItem {
-                    objectName: "menuSettingsPwszPreviewCompletion"
-                    text: qsTr("Complete PWSZ previews before upload")
-                    checkable: true
-                    checked: root.pwszPreviewCompletionEnabled
-                    onTriggered: {
-                        root.pwszPreviewCompletionEnabled = checked
-                        root.persistPwszUploadSetting("cloud.upload.completePwszPreview2", checked)
-                        root.statusText = checked
-                                ? qsTr("Automatic PWSZ preview completion enabled.")
-                                : qsTr("Automatic PWSZ preview completion disabled.")
-                    }
-                }
-
-                MenuItem {
-                    objectName: "menuSettingsPwszPreviewConfirmation"
-                    text: qsTr("Confirm before modifying PWSZ files")
-                    checkable: true
-                    checked: root.pwszPreviewConfirmationEnabled
-                    onTriggered: {
-                        root.pwszPreviewConfirmationEnabled = checked
-                        root.persistPwszUploadSetting("cloud.upload.confirmPwszPreview2", checked)
-                    }
-                }
-            }
-
-            Menu {
-                objectName: "menuSettingsViewer3d"
-                title: qsTr("3D Viewer")
-
-                MenuItem {
-                    objectName: "menuSettingsRender3dWorkers"
-                    text: qsTr("3D generation workers: %1").arg(root.render3dWorkerCount)
-                    enabled: root.viewer3dEnabled
-                    onTriggered: {
-                        render3dWorkersSpin.value = root.render3dWorkerCount
-                        render3dWorkersDialog.open()
-                    }
-                }
-
-                MenuItem {
-                    objectName: "menuSettingsRender3dPalette"
-                    text: qsTr("3D colors: %1").arg(
-                              root.render3dPaletteFor(root.render3dPalettePreset).label)
-                    enabled: root.viewer3dEnabled
-                    onTriggered: {
-                        render3dPaletteDialog.prepare()
-                        render3dPaletteDialog.open()
-                    }
-                }
-            }
-        }
-
-        Menu {
             objectName: "menuSession"
             title: qsTr("Session")
 
@@ -536,7 +554,17 @@ ApplicationWindow {
                     sessionDialog.open()
                 }
             }
+        }
 
+        Menu {
+            objectName: "menuParametre"
+            title: qsTr("Settings")
+
+            MenuItem {
+                objectName: "menuSettingsOpen"
+                text: qsTr("Preferences...")
+                onTriggered: settingsDialog.open()
+            }
         }
 
         Menu {
@@ -548,7 +576,6 @@ ApplicationWindow {
                 text: qsTr("About")
                 onTriggered: aboutDialog.open()
             }
-
         }
     }
 
@@ -577,437 +604,238 @@ ApplicationWindow {
         objectName: "printDraftDialog"
     }
 
-    AppDialogFrame {
-        id: render3dWorkersDialog
-        objectName: "render3dWorkersDialog"
-        title: qsTr("3D generation settings")
-        subtitle: qsTr("Configure the number of parallel mesh workers.")
-        minimumWidth: 460
-        maximumWidth: 560
+    AppScrollableDialogFrame {
+        id: settingsDialog
+        objectName: "settingsDialog"
+        title: qsTr("Settings")
+        subtitle: qsTr("Choose your preferences, grouped by topic. Changes are saved immediately.")
+        dialogSize: "large"
+        minimumWidth: 640
+        maximumWidth: 820
+        maximumHeight: 800
+        contentMinimumHeight: 430
 
-        bodyData: [
+        onOpened: {
+            var ratio = root.render3dWorkerRatio !== 0
+                    ? root.render3dWorkerRatio
+                    : root.workerRatioForCount(root.render3dWorkerCount)
+            settingsWorkerRatioCombo.currentIndex = root.workerOptionIndexForRatio(ratio)
+            settingsThemePresetCombo.currentIndex = Math.max(0, settingsThemePresetCombo.find(root.persistedThemeName))
+            settingsAccentPresetCombo.currentIndex = Math.max(0, settingsAccentPresetCombo.find(root.persistedAccentName))
+            settingsLanguageCombo.currentIndex = root.languageOptionIndex(root.persistedLanguageCode)
+            settingsRender3dPaletteCombo.currentIndex = root.render3dPaletteIndex(root.render3dPalettePreset)
+        }
+
+        scrollBodyData: [
+            SectionHeader {
+                Layout.fillWidth: true
+                title: qsTr("Interface")
+                subtitle: qsTr("Appearance, language and file details")
+            },
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Theme.gapRow
-
                 Text {
-                    Layout.fillWidth: true
-                    text: qsTr("Parallel workers")
+                    text: qsTr("Theme")
                     color: Theme.fgPrimary
                     font.pixelSize: Theme.fontBodyPx
+                    Layout.preferredWidth: 165
                 }
-
-                AppSpinBox {
-                    id: render3dWorkersSpin
-                    objectName: "render3dWorkersSpin"
-                    from: 1
-                    to: 16
-                    value: root.render3dWorkerCount
-                }
-            },
-            Text {
-                Layout.fillWidth: true
-                text: qsTr("Default: 4. Higher values use more CPU and memory during 3D generation.")
-                color: Theme.fgSecondary
-                wrapMode: Text.WordWrap
-                font.pixelSize: Theme.fontCaptionPx
-            }
-        ]
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Cancel")
-                variant: "secondary"
-                onClicked: render3dWorkersDialog.close()
-            },
-            AppButton {
-                objectName: "render3dWorkersApplyButton"
-                text: qsTr("Apply")
-                variant: "primary"
-                onClicked: {
-                    root.persistRender3dWorkerCount(render3dWorkersSpin.value)
-                    root.statusText = qsTr("3D generation workers updated: %1").arg(root.render3dWorkerCount)
-                    render3dWorkersDialog.close()
-                }
-            }
-        ]
-    }
-
-    AppDialogFrame {
-        id: render3dPaletteDialog
-        objectName: "render3dPaletteDialog"
-        title: qsTr("3D color settings")
-        subtitle: qsTr("Choose a color pair for the printed part and the viewport background.")
-        minimumWidth: 520
-        maximumWidth: 620
-        property var paletteOptions: []
-        property int pendingIndex: 0
-        readonly property var pendingPalette: paletteOptions.length > 0
-                                               ? paletteOptions[Math.max(0, Math.min(
-                                                     pendingIndex, paletteOptions.length - 1))]
-                                               : root.render3dPaletteFor("technical_cyan")
-
-        function prepare() {
-            paletteOptions = root.render3dPaletteOptions()
-            pendingIndex = root.render3dPaletteIndex(root.render3dPalettePreset)
-        }
-
-        bodyData: [
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 6
-
-                Text {
-                    Layout.fillWidth: true
-                    text: qsTr("Color preset")
-                    color: Theme.fgPrimary
-                    font.pixelSize: Theme.fontBodyPx
-                }
-
                 AppComboBox {
-                    id: render3dPaletteCombo
-                    objectName: "render3dPaletteCombo"
+                    id: settingsThemePresetCombo
+                    objectName: "settingsThemePresetCombo"
                     Layout.fillWidth: true
-                    model: render3dPaletteDialog.paletteOptions
-                    textRole: "label"
-                    currentIndex: render3dPaletteDialog.pendingIndex
+                    model: Theme.availableThemePresets()
                     onActivated: function(index) {
-                        render3dPaletteDialog.pendingIndex = index
+                        root.applyThemeSelection(String(currentText), root.persistedAccentName, true)
                     }
-                }
-            },
-            Text {
-                Layout.fillWidth: true
-                text: qsTr("Preview")
-                color: Theme.fgPrimary
-                font.pixelSize: Theme.fontBodyPx
-                font.bold: true
-            },
-            Rectangle {
-                objectName: "render3dPalettePreviewBackground"
-                Layout.fillWidth: true
-                Layout.preferredHeight: 130
-                radius: Theme.radiusControl
-                color: render3dPaletteDialog.pendingPalette.backgroundColor
-                border.width: Theme.borderWidth
-                border.color: Theme.borderDefault
-
-                Rectangle {
-                    objectName: "render3dPalettePreviewPart"
-                    anchors.centerIn: parent
-                    width: Math.min(parent.width * 0.48, 240)
-                    height: 62
-                    radius: Theme.radiusControl
-                    color: render3dPaletteDialog.pendingPalette.partColor
-                    border.width: 1
-                    border.color: Qt.darker(color, 1.25)
                 }
             },
             RowLayout {
                 Layout.fillWidth: true
-
+                spacing: Theme.gapRow
                 Text {
-                    Layout.fillWidth: true
-                    text: qsTr("Part: %1").arg(
-                              render3dPaletteDialog.pendingPalette.partColor)
-                    color: Theme.fgSecondary
-                    font.pixelSize: Theme.fontCaptionPx
+                    text: qsTr("Accent")
+                    color: Theme.fgPrimary
+                    font.pixelSize: Theme.fontBodyPx
+                    Layout.preferredWidth: 165
                 }
-
-                Text {
+                AppComboBox {
+                    id: settingsAccentPresetCombo
+                    objectName: "settingsAccentPresetCombo"
                     Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignRight
-                    text: qsTr("Background: %1").arg(
-                              render3dPaletteDialog.pendingPalette.backgroundColor)
-                    color: Theme.fgSecondary
-                    font.pixelSize: Theme.fontCaptionPx
+                    model: Theme.availableAccents()
+                    onActivated: function(index) {
+                        root.applyThemeSelection(root.persistedThemeName, String(currentText), true)
+                    }
+                }
+            },
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.gapRow
+                Text {
+                    text: qsTr("Language")
+                    color: Theme.fgPrimary
+                    font.pixelSize: Theme.fontBodyPx
+                    Layout.preferredWidth: 165
+                }
+                AppComboBox {
+                    id: settingsLanguageCombo
+                    objectName: "settingsLanguageCombo"
+                    Layout.fillWidth: true
+                    enabled: root.hasI18nBridge()
+                    model: root.languageOptions()
+                    textRole: "label"
+                    onActivated: function(index) {
+                        if (!root.hasI18nBridge())
+                            return
+                        var choice = root.languageOptions()[index]
+                        if (choice === undefined)
+                            return
+                        appI18nBridge.setLanguage(choice.value)
+                        root.persistedLanguageCode = String(appI18nBridge.languageCode || "system")
+                    }
+                }
+            },
+            AppCheckBox {
+                objectName: "settingsTechnicalDetailsCheckBox"
+                Layout.fillWidth: true
+                text: qsTr("Show technical file details")
+                checked: root.cloudFileAdvancedDetailsEnabled
+                onToggled: root.persistCloudFileDetailsSetting(checked)
+            },
+            SectionHeader {
+                Layout.fillWidth: true
+                title: qsTr("Printing")
+                subtitle: qsTr("Direct-print cleanup")
+            },
+            AppCheckBox {
+                objectName: "settingsDirectDeleteLocalOnFailureCheckBox"
+                Layout.fillWidth: true
+                text: qsTr("Delete printer-local copy when a direct print fails")
+                checked: root.directDeleteLocalOnFailureEnabled
+                onToggled: root.persistDirectPrintFailureCleanup(checked)
+            },
+            SectionHeader {
+                Layout.fillWidth: true
+                title: qsTr("Files / Upload")
+                subtitle: qsTr("PWSZ preview preparation")
+            },
+            AppCheckBox {
+                objectName: "settingsPwszPreviewCompletionCheckBox"
+                Layout.fillWidth: true
+                text: qsTr("Complete PWSZ previews before upload")
+                checked: root.pwszPreviewCompletionEnabled
+                onToggled: {
+                    root.pwszPreviewCompletionEnabled = checked
+                    root.persistPwszUploadSetting("cloud.upload.completePwszPreview2", checked)
+                }
+            },
+            AppCheckBox {
+                objectName: "settingsPwszPreviewConfirmationCheckBox"
+                Layout.fillWidth: true
+                text: qsTr("Confirm before modifying PWSZ files")
+                checked: root.pwszPreviewConfirmationEnabled
+                onToggled: {
+                    root.pwszPreviewConfirmationEnabled = checked
+                    root.persistPwszUploadSetting("cloud.upload.confirmPwszPreview2", checked)
+                }
+            },
+            SectionHeader {
+                Layout.fillWidth: true
+                title: qsTr("3D Viewer")
+                subtitle: qsTr("Mesh generation and viewport colors")
+            },
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.gapRow
+                enabled: root.viewer3dEnabled
+                Text {
+                    text: qsTr("Generation workers")
+                    color: Theme.fgPrimary
+                    font.pixelSize: Theme.fontBodyPx
+                }
+                Item { Layout.fillWidth: true }
+                AppComboBox {
+                    id: settingsWorkerRatioCombo
+                    objectName: "settingsWorkerRatioCombo"
+                    Layout.preferredWidth: 310
+                    model: root.workerDisplayOptions()
+                    textRole: "label"
+                    onActivated: function(index) {
+                        var options = root.workerDisplayOptions()
+                        if (index < 0 || index >= options.length || options[index].value === 0)
+                            return
+                        root.persistRender3dWorkerRatio(options[index].value)
+                        settingsWorkerRatioCombo.currentIndex = root.workerOptionIndexForRatio(options[index].value)
+                        root.statusText = qsTr("3D generation workers updated: %1")
+                                              .arg(root.render3dWorkerCount)
+                    }
                 }
             },
             Text {
                 Layout.fillWidth: true
-                text: qsTr("The colors are applied immediately without rebuilding the 3D mesh.")
+                visible: root.viewer3dEnabled
+                text: qsTr("%1 logical cores detected. Two cores are reserved; worker counts range from %2 to %3. Changes apply to new PWSZ loads.")
+                          .arg(root.availableLogicalCores)
+                          .arg(root.minimumRender3dWorkers())
+                          .arg(root.maximumRender3dWorkers())
                 color: Theme.fgSecondary
                 wrapMode: Text.WordWrap
                 font.pixelSize: Theme.fontCaptionPx
-            }
-        ]
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Cancel")
-                variant: "secondary"
-                onClicked: render3dPaletteDialog.close()
             },
-            AppButton {
-                objectName: "render3dPaletteApplyButton"
-                text: qsTr("Apply")
-                variant: "primary"
-                onClicked: {
-                    var selected = render3dPaletteDialog.pendingPalette
-                    root.persistRender3dPalettePreset(selected.id)
-                    root.statusText = qsTr("3D colors updated: %1").arg(selected.label)
-                    render3dPaletteDialog.close()
-                }
-            }
-        ]
-    }
-
-    AppDialogFrame {
-        id: languageDialog
-        objectName: "languageDialog"
-        title: qsTr("Language Settings")
-        subtitle: qsTr("Choose app language. System language is used by default.")
-        minimumWidth: 520
-        maximumWidth: 680
-        property string pendingLanguage: root.persistedLanguageCode
-        property var languageOptions: []
-
-        function languageIndexFor(codeValue) {
-            var code = String(codeValue || "system")
-            for (var i = 0; i < languageOptions.length; ++i) {
-                var option = languageOptions[i]
-                if (String(option.value || "") === code)
-                    return i
-            }
-            return 0
-        }
-
-        function rebuildLanguageOptions() {
-            languageOptions = [
-                { "value": "system", "label": qsTr("System default") },
-                { "value": "en", "label": qsTr("English") },
-                { "value": "fr", "label": qsTr("French") }
-            ]
-        }
-
-        onOpened: {
-            rebuildLanguageOptions()
-            pendingLanguage = root.hasI18nBridge()
-                    ? String(appI18nBridge.languageCode || "system")
-                    : "system"
-            languageCombo.currentIndex = languageIndexFor(pendingLanguage)
-        }
-
-        SectionHeader {
-            Layout.fillWidth: true
-            title: qsTr("Language")
-            subtitle: qsTr("Fallback: English if system language is unavailable")
-        }
-
-        AppComboBox {
-            id: languageCombo
-            Layout.fillWidth: true
-            textRole: "label"
-            model: languageDialog.languageOptions
-            onActivated: {
-                if (currentIndex >= 0 && currentIndex < languageDialog.languageOptions.length)
-                    languageDialog.pendingLanguage = String(languageDialog.languageOptions[currentIndex].value || "system")
-            }
-        }
-
-        Text {
-            Layout.fillWidth: true
-            text: root.hasI18nBridge()
-                  ? qsTr("Current effective language: %1").arg(String(appI18nBridge.effectiveLanguageCode || "en"))
-                  : qsTr("Language bridge unavailable.")
-            color: Theme.fgSecondary
-            wrapMode: Text.WordWrap
-            font.pixelSize: Theme.fontCaptionPx
-        }
-
-        footerTrailingData: [
-            AppButton {
-                text: qsTr("Close")
-                variant: "secondary"
-                onClicked: languageDialog.close()
-            },
-            AppButton {
-                text: qsTr("Apply")
-                variant: "primary"
-                enabled: root.hasI18nBridge()
-                onClicked: {
-                    if (!root.hasI18nBridge())
-                        return
-                    appI18nBridge.setLanguage(languageDialog.pendingLanguage)
-                    root.persistedLanguageCode = String(appI18nBridge.languageCode || "system")
-                    var selectedLabel = (languageCombo.currentIndex >= 0
-                                         && languageCombo.currentIndex < languageDialog.languageOptions.length)
-                            ? String(languageDialog.languageOptions[languageCombo.currentIndex].label || "")
-                            : qsTr("System default")
-                    root.statusText = qsTr("Language updated: %1").arg(selectedLabel)
-                    languageDialog.close()
-                }
-            }
-        ]
-    }
-
-    AppDialogFrame {
-        id: themeDialog
-        objectName: "themeDialog"
-        title: qsTr("Theme Settings")
-        subtitle: qsTr("Preset + accent applied live. Persistence is saved on validation.")
-        minimumWidth: 560
-        maximumWidth: 680
-        property string pendingTheme: root.persistedThemeName
-        property string pendingAccent: root.persistedAccentName
-        property bool committed: false
-
-        function refreshComboState() {
-            var tIndex = themePresetCombo.find(themeDialog.pendingTheme)
-            themePresetCombo.currentIndex = tIndex >= 0 ? tIndex : 0
-
-            var aIndex = accentPresetCombo.find(themeDialog.pendingAccent)
-            accentPresetCombo.currentIndex = aIndex >= 0 ? aIndex : 0
-        }
-
-        onOpened: {
-            committed = false
-            pendingTheme = root.persistedThemeName
-            pendingAccent = root.persistedAccentName
-            refreshComboState()
-            root.applyThemeSelection(pendingTheme, pendingAccent, false)
-        }
-
-        onClosed: {
-            if (!committed) {
-                root.restorePersistedTheme()
-            }
-        }
-
-        SectionHeader {
-            Layout.fillWidth: true
-            title: qsTr("Preset")
-            subtitle: qsTr("Global app palette")
-        }
-
-        AppComboBox {
-            id: themePresetCombo
-            objectName: "themePresetCombo"
-            Layout.fillWidth: true
-            model: Theme.availableThemePresets()
-            onActivated: function() {
-                themeDialog.pendingTheme = String(currentText)
-                root.applyThemeSelection(themeDialog.pendingTheme, themeDialog.pendingAccent, false)
-            }
-        }
-
-        SectionHeader {
-            Layout.fillWidth: true
-            title: qsTr("Accent")
-            subtitle: qsTr("Primary action color")
-        }
-
-        AppComboBox {
-            id: accentPresetCombo
-            objectName: "accentPresetCombo"
-            Layout.fillWidth: true
-            model: Theme.availableAccents()
-            onActivated: function() {
-                themeDialog.pendingAccent = String(currentText)
-                root.applyThemeSelection(themeDialog.pendingTheme, themeDialog.pendingAccent, false)
-            }
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 116
-            radius: Theme.radiusControl
-            color: Theme.bgSurface
-            border.width: Theme.borderWidth
-            border.color: Theme.borderDefault
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 15
-                spacing: 8
-
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.gapRow
+                enabled: root.viewer3dEnabled
                 Text {
-                    text: qsTr("Preview")
+                    text: qsTr("3D colors")
                     color: Theme.fgPrimary
-                    font.pixelSize: Theme.fontSectionPx
-                    font.bold: true
+                    font.pixelSize: Theme.fontBodyPx
+                    Layout.preferredWidth: 165
                 }
-
-                RowLayout {
+                AppComboBox {
+                    id: settingsRender3dPaletteCombo
+                    objectName: "settingsRender3dPaletteCombo"
                     Layout.fillWidth: true
-                    spacing: 8
-
-                    Rectangle {
-                        Layout.preferredWidth: 16
-                        Layout.preferredHeight: 16
-                        radius: 8
-                        color: Theme.accent
-                        border.width: Theme.borderWidth
-                        border.color: Theme.borderDefault
-                    }
-
-                    Text {
-                        text: qsTr("Primary text sample")
-                        color: Theme.fgPrimary
-                        font.pixelSize: Theme.fontBodyPx
-                    }
-
-                    Text {
-                        text: qsTr("Secondary text sample")
-                        color: Theme.fgSecondary
-                        opacity: 0.9
-                        font.pixelSize: Theme.fontCaptionPx
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    AppButton {
-                        text: qsTr("Primary")
-                        variant: "primary"
+                    model: root.render3dPaletteOptions()
+                    textRole: "label"
+                    onActivated: function(index) {
+                        var options = root.render3dPaletteOptions()
+                        if (index >= 0 && index < options.length)
+                            root.persistRender3dPalettePreset(options[index].id)
                     }
                 }
+            },
+            Rectangle {
+                objectName: "settingsRender3dPalettePreviewBackground"
+                Layout.fillWidth: true
+                Layout.preferredHeight: 64
+                radius: Theme.radiusControl
+                color: root.render3dBackgroundColor
+                border.width: Theme.borderWidth
+                border.color: Theme.borderDefault
+                Rectangle {
+                    objectName: "settingsRender3dPalettePreviewPart"
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width * 0.42, 200)
+                    height: 30
+                    radius: Theme.radiusControl
+                    color: root.render3dPartColor
+                    border.width: 1
+                    border.color: Qt.darker(color, 1.25)
+                }
             }
-        }
-
-        AppButton {
-            text: qsTr("Reset to defaults")
-            variant: "secondary"
-            onClicked: {
-                themeDialog.pendingTheme = "WarmLight"
-                themeDialog.pendingAccent = "Teal"
-                themeDialog.refreshComboState()
-                root.applyThemeSelection(themeDialog.pendingTheme, themeDialog.pendingAccent, false)
-            }
-        }
+        ]
 
         footerTrailingData: [
             AppButton {
+                objectName: "settingsCloseButton"
                 text: qsTr("Close")
-                variant: "secondary"
-                onClicked: themeDialog.close()
-            },
-            AppButton {
-                text: qsTr("Apply")
                 variant: "primary"
-                onClicked: {
-                    themeDialog.committed = true
-                    root.applyThemeSelection(themeDialog.pendingTheme, themeDialog.pendingAccent, true)
-                    root.statusText = qsTr("Theme: %1 / Accent: %2")
-                            .arg(root.persistedThemeName)
-                            .arg(root.persistedAccentName)
-                    themeDialog.close()
-                }
+                onClicked: settingsDialog.close()
             }
         ]
-        footerLeadingData: [
-            AppButton {
-                text: qsTr("Cancel changes")
-                variant: "secondary"
-                onClicked: {
-                    themeDialog.committed = false
-                    themeDialog.close()
-                }
-            }
-        ]
-
-        onRejected: {
-            committed = false
-        }
     }
 
     AppDialogFrame {

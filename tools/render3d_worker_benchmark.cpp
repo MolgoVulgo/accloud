@@ -37,9 +37,21 @@ using accloud::render3d::MeshBuildCallbacks;
 using accloud::render3d::MeshBuildOptions;
 using accloud::render3d::MeshBuildResult;
 
+std::vector<std::size_t> defaultWorkerCounts() {
+  const auto maximum = accloud::render3d::maximumMeshWorkerCount();
+  std::vector<std::size_t> counts;
+  for (const std::size_t requested : {std::size_t{4}, std::size_t{8}, std::size_t{16}}) {
+    const auto bounded = std::min(requested, maximum);
+    if (counts.empty() || counts.back() != bounded) {
+      counts.push_back(bounded);
+    }
+  }
+  return counts;
+}
+
 struct BenchmarkOptions {
   std::filesystem::path inputPath;
-  std::vector<std::size_t> workerCounts{4, 8, 16};
+  std::vector<std::size_t> workerCounts = defaultWorkerCounts();
   std::size_t repeats = 1;
   std::size_t warmupRuns = 0;
   std::size_t layerStride = 2;
@@ -131,7 +143,7 @@ std::optional<std::vector<std::size_t>> parseWorkers(std::string_view text) {
     const std::size_t end = separator == std::string_view::npos ? text.size() : separator;
     const auto value = parseSize(text.substr(start, end - start));
     if (!value || *value < accloud::render3d::kMinimumMeshWorkerCount
-        || *value > accloud::render3d::kMaximumMeshWorkerCount
+        || *value > accloud::render3d::maximumMeshWorkerCount()
         || std::find(values.begin(), values.end(), *value) != values.end()) {
       return std::nullopt;
     }
@@ -636,7 +648,7 @@ private:
 
 int runSelfTest() {
   const BenchmarkOptions defaults;
-  if (defaults.workerCounts != std::vector<std::size_t>{4, 8, 16}
+  if (defaults.workerCounts != defaultWorkerCounts()
       || defaults.chunkLayerCounts != std::vector<std::size_t>{8, 16, 32}
       || MeshBuildOptions{}.chunkLayerCount != 8) {
     std::cerr << "self-test benchmark defaults are inconsistent\n";
@@ -673,7 +685,8 @@ int runSelfTest() {
     }
   }
 
-  if (runs.size() != 9 || expectedGeometryByChunkSize.size() != 3
+  if (runs.size() != defaults.workerCounts.size() * defaults.chunkLayerCounts.size()
+      || expectedGeometryByChunkSize.size() != 3
       || expectedGeometryByChunkSize.at(8).chunks != 8
       || expectedGeometryByChunkSize.at(16).chunks != 4
       || expectedGeometryByChunkSize.at(32).chunks != 2) {
@@ -694,7 +707,7 @@ int runSelfTest() {
   }
 
   const auto summaries = summarize(runs);
-  if (summaries.size() != 9) {
+  if (summaries.size() != defaults.workerCounts.size() * defaults.chunkLayerCounts.size()) {
     std::cerr << "self-test summary does not cover the full benchmark matrix\n";
     return 1;
   }

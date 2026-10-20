@@ -16,25 +16,18 @@ qrc:/qml/MainWindow.qml
 
 ### Menu principal
 
-L'ordre de premier niveau est fixé à **Paramètres**, **Session**, **Aide**. Les réglages sont regroupés au lieu d'être exposés à plat :
+L'ordre de premier niveau est fixé à **Session**, **Paramètres**, **Aide**. **Paramètres > Préférences…** ouvre une fenêtre unique défilante regroupée par thème, sans sous-menus imbriqués :
 
 ```text
-Paramètres
-├─ Interface
-│  ├─ Thème
-│  ├─ Langue
-│  └─ Afficher les détails techniques des fichiers
-├─ Impression
-│  └─ Supprimer la copie locale de l'imprimante si une impression directe échoue
-├─ Fichiers / Upload
-│  ├─ Compléter les aperçus PWSZ avant l'envoi
-│  └─ Confirmer avant de modifier les fichiers PWSZ
-└─ Visionneuse 3D
-   ├─ Workers de génération 3D
-   └─ Couleurs 3D
-
 Session
 └─ Importer un HAR…
+
+Paramètres
+└─ Préférences… (fenêtre unique)
+   ├─ Interface : thème/accent, langue, détails techniques
+   ├─ Impression : nettoyage local après échec d’impression directe
+   ├─ Fichiers / Upload : complétion et confirmation des aperçus PWSZ
+   └─ Visionneuse 3D : ratio de workers CPU, couleurs
 
 Aide
 └─ À propos (identité accloud, version, lien GitHub et indépendance)
@@ -95,9 +88,11 @@ Les tâches récentes restent strictement textuelles : aucune miniature n’est 
 
 La barre d'actions distingue **Ajouter au cloud** et **Impression directe**. L'upload standard s'arrête après l'enregistrement cloud et ne propose aucune option de nettoyage après impression. L'impression directe conserve le fichier local sélectionné comme entrée de l'opération, contrôle la compatibilité par extension, le téléverse puis envoie automatiquement l'ordre lorsque le fichier cloud est prêt. Sa case de nettoyage appartient uniquement à cette opération : après une impression réussie confirmée, ACM supprime d'abord le fichier local exact de l'imprimante, puis le fichier cloud uniquement après confirmation MQTT de `deleteLocal`.
 
-Le sous-menu **Paramètres > Impression** propose **Supprimer la copie locale de l'imprimante si une impression directe échoue**, désactivé par défaut. Sa valeur est figée au lancement de l'opération directe et n'a aucun effet sur les uploads standards, les impressions depuis la liste cloud ou les impressions directes sans nettoyage demandé. Pour une tâche directe réellement passée à l'état actif puis terminée avec le statut 3 ou 4, l'activation autorise uniquement la suppression de la copie locale exacte ; le fichier cloud est toujours conservé en cas d'échec, d'arrêt ou d'annulation.
+La section **Paramètres > Préférences > Impression** propose **Supprimer la copie locale de l'imprimante si une impression directe échoue**, désactivé par défaut. Sa valeur est figée au lancement de l'opération directe et n'a aucun effet sur les uploads standards, les impressions depuis la liste cloud ou les impressions directes sans nettoyage demandé. Pour une tâche directe réellement passée à l'état actif puis terminée avec le statut 3 ou 4, l'activation autorise uniquement la suppression de la copie locale exacte ; le fichier cloud est toujours conservé en cas d'échec, d'arrêt ou d'annulation.
 
-Le sous-menu **Paramètres > Visionneuse 3D** expose **Workers de génération 3D** et **Couleurs 3D** comme réglages standards du viewer. La valeur persistée `render3d.workerCount` vaut `4` par défaut, est bornée à `1..16` et s'applique à chaque nouveau PWSZ chargé. Une valeur plus élevée augmente la pression CPU et mémoire ; sa modification ne change pas un mesh déjà en cours de génération.
+La section **Paramètres > Préférences… > Visionneuse 3D** propose les ratios CPU **1/4, 2/4, 3/4, 4/4** sans sous-fenêtre. Le plafond vaut `max(1, cœurs logiques - 2)` ; le minimum est six à partir de huit cœurs et un en deçà. Chaque ratio s'applique à ce plafond avec arrondi supérieur et bornage ; les nombres de workers identiques n'apparaissent qu'une fois. `QThread::idealThreadCount()` fournit les cœurs logiques ; le repli de test est de huit cœurs. `render3d.workerRatio` (1..4) est persisté et recalculé si le matériel change ; `render3d.workerCount` reste la valeur absolue normalisée du moteur. Une ancienne valeur absolue valide est conservée jusqu'à sélection explicite d'un ratio, avec une ligne personnalisée lorsqu'aucun ratio ne correspond. À partir de huit cœurs, le défaut en l'absence de préférence valide est de six workers. Augmenter les workers sollicite CPU et mémoire ; la modification n'affecte que les nouveaux PWSZ. Thème, langue, accent et palettes 3D sont intégrés à la fenêtre, avec aperçu des couleurs et persistance immédiate ; les cases à cocher sont alignées sur des lignes de pleine largeur.
+
+Les sélecteurs **Thème** et **Accent** s’appliquent immédiatement à toutes les pages, menus, contrôles et fenêtres déjà ouverts, sans fermer les Paramètres ni relancer l’application. Le singleton QML réactif `Theme.qml` reprend les palettes existantes de `Theme.js` et propage les changements de couleur à leurs liaisons. Les valeurs restent persistées sous `ui.themeName` et `ui.accentName`.
 
 La valeur persistée `render3d.palettePreset` sélectionne l'un des cinq couples pièce/fond : `technical_cyan`, `industrial_amber`, `mineral_ivory`, `night_coral` ou `light_graphite`. Une valeur persistée invalide est normalisée vers `technical_cyan`. L'application d'un préréglage met à jour les deux couleurs ensemble, se propage à un viewer déjà ouvert et ne déclenche qu'un repaint via les propriétés existantes `meshColor` et `backgroundColor` ; le PWSZ n'est pas rechargé et le mesh n'est pas reconstruit. La saisie libre de couleurs n'est pas exposée.
 
@@ -108,7 +103,7 @@ La caméra du viewer conserve une distance de zoom finie même avec des événem
 La persistance des impressions directes, la réconciliation avec les projets et les transitions d'état de nettoyage sont désormais portées par `PrintWorkflowBridge`, adossé à `PendingDirectPrintStore` et au `DirectPrintLifecycleUseCase` typé. QML se limite à enregistrer une impression directe acceptée et à transmettre au workflow les snapshots de projets rafraîchis ; il ne conserve plus de map de nettoyage direct, ne corrèle plus les projets, ne déclenche plus lui-même la suppression locale imprimante, ne corrèle plus la suppression cloud et n'interprète plus les transitions de nettoyage. `CloudBridge` n'expose plus les méthodes de persistance des impressions directes. La corrélation asynchrone des ordres imprimante utilise un contexte `QVariantMap` structuré (`kind` et champs typés) au lieu d'identifiants concaténés analysés par préfixes ou `split(":")`. Les confirmations MQTT `deleteLocal` sont raccordées directement de `MqttBridge` vers `PrintWorkflowBridge` : le bridge porte la corrélation des `msgId` en attente ainsi que les états de suppression locale/cloud en vol. Les intentions de transport pour les suppressions directe locale/cloud sont raccordées de `PrintWorkflowBridge` vers `CloudBridge` dans le bootstrap desktop ; QML ne reçoit plus que des notifications sémantiques de nettoyage et de libération du suivi. Les impressions standards lancées depuis la liste cloud utilisent la même frontière de workflow pour le nettoyage post-print : QML signale seulement la fin de la tâche imprimante, `PrintWorkflowBridge` demande d'abord la suppression du fichier local de l'imprimante, ne demande la suppression cloud qu'après succès de cet ordre local, puis émet des notifications sémantiques de succès ou d'échec. La map QML restante d'impression distante en attente sert uniquement de placeholder visuel temporaire après acceptation de l'ordre, jusqu'à l'arrivée de la télémétrie projet réelle.
 
 
-La complétion des aperçus PWSZ est contrôlée par deux réglages persistés : la complétion elle-même est activée par défaut, et la confirmation avant remplacement permanent du fichier local est activée par défaut. La modal explique que `preview_1.png` est copié vers `preview_2.png`, que la version préparée est envoyée, puis que le fichier local n’est remplacé qu’après succès cloud. « Ne plus demander » désactive uniquement la confirmation ; les deux réglages restent accessibles depuis **Paramètres > Fichiers / Upload**.
+La complétion des aperçus PWSZ est contrôlée par deux réglages persistés : la complétion elle-même est activée par défaut, et la confirmation avant remplacement permanent du fichier local est activée par défaut. La modal explique que `preview_1.png` est copié vers `preview_2.png`, que la version préparée est envoyée, puis que le fichier local n’est remplacé qu’après succès cloud. « Ne plus demander » désactive uniquement la confirmation ; les deux réglages restent accessibles depuis **Paramètres > Préférences > Fichiers / Upload**.
 
 
 Le chantier d’impression directe différée possède une politique de sécurité C++ pure (`DirectPrintPreparationPolicy.h`) avec ses tests dédiés. Elle définit la vérification indépendante de la disponibilité cloud, le recontrôle de l’imprimante, la réservation durable avant l’envoi, la reprise et le traitement conservateur des réponses HTTP incertaines. **Cette politique n’est pas encore raccordée au workflow d’upload/impression actif** ; le comportement actuel de l’impression directe reste inchangé à cette étape.
@@ -164,10 +159,17 @@ Les phases de progression traversent le bridge sous forme de clés stables (`pws
 
 La modal de détails privilégie les informations utiles à l’impression : aperçu local, format, taille, date de téléversement, état traduit, machine, matériau, durée, profil de couches, exposition, consommation et imprimantes compatibles. La miniature et les huit valeurs principales sont regroupées dans un résumé compact de hauteur fixe afin de préserver en permanence la zone d’onglets. La miniature utilise uniquement la source déjà résolue par le cache du bridge ; QML n’effectue aucun téléchargement distant direct.
 
-Le réglage persistant `ui.cloudFiles.showAdvancedDetails`, accessible depuis **Paramètres > Afficher les détails techniques des fichiers**, ajoute un onglet réservé aux identifiants du fichier, au code d’état, aux dates techniques, à la région et au MD5 de tranche. Il est désactivé par défaut en production et activé par défaut avec `--debug-ui`, sauf valeur utilisateur déjà persistée.
+Le réglage persistant `ui.cloudFiles.showAdvancedDetails`, accessible depuis **Paramètres > Préférences > Interface > Afficher les détails techniques des fichiers**, ajoute un onglet réservé aux identifiants du fichier, au code d’état, aux dates techniques, à la région et au MD5 de tranche. Il est désactivé par défaut en production et activé par défaut avec `--debug-ui`, sauf valeur utilisateur déjà persistée.
 
 Un onglet distinct **Métadonnées cloud** est visible uniquement dans les builds de développement avec `ACCLOUD_DEBUG` actif. Il expose l’identité cloud brute, les dates, la région, le bucket et le chemin objet nécessaires au diagnostic. Les URL signées de téléchargement et les chemins locaux du cache de miniatures ne sont jamais affichés. Chaque onglet utilise deux cartes de largeur identique qui occupent toute la hauteur disponible. Les lignes de détails conservent leur hauteur naturelle, avec un espacement compact fixe, et restent regroupées en haut de chaque carte ; seul l’espace résiduel sous la dernière ligne s’étire. Le panneau ne défile que lorsque le contenu dépasse réellement. L’action Renommer se trouve dans l’en-tête ; Supprimer reste isolé à gauche du pied de page, tandis que les actions Fermer, Télécharger et Imprimer, de taille homogène, sont ordonnées à droite afin qu’Imprimer reste l’action principale finale.
 
 ## Contrat des langues et statuts pour la candidate
 
 Les textes QML de `PrinterPage`, `PrinterDetailPanel`, du workflow Fichiers cloud et du menu principal sont contrôlés dans les deux catalogues TS de racine par `accloud_release_candidate_contract`. Les traductions françaises doivent être renseignées et les entrées anglaises présentes ; le repli sur la source anglaise demeure possible pour les anciennes traductions non finalisées. Après acceptation HTTP d’un ordre, l’imprimante conserve son dernier état confirmé et un indicateur distinct signale l’attente de télémétrie. Un ordre en attente ne prouve **pas** une impression active.
+
+
+### Préférences unifiées et workers réservant du CPU (patch 0009)
+
+L’ordre des menus **Session → Paramètres → Aide** est conservé. Paramètres → Préférences intègre Thème, Accent, Langue et les cinq palettes 3D directement dans la fenêtre, avec un aperçu pièce/fond ; aucune sous-fenêtre de paramètres n’est ouverte. Les quatre cases à cocher utilisent des lignes homogènes, alignées et de pleine largeur. Les choix sont enregistrés immédiatement via les bridges existants.
+
+La capacité des workers de maillage réserve deux cœurs logiques : maximum `max(1, cœurs_logiques - 2)`. Dès huit cœurs détectés, le minimum est six ; en deçà, il est un. Les quatre ratios valent `ceil(maximum × ratio/4)` bornés par le minimum et le maximum ; les ratios donnant le même nombre de workers sont regroupés au profit du ratio équivalent le plus élevé. Pour 8/12/16/32 cœurs, les maxima sont 6/10/14/30. Le réglage historique `render3d.workerCount` reste lisible mais est normalisé aux capacités disponibles. Le moteur C++ et le rendu QML abandonnent le plafond fixe de 16. Réserver deux unités de capacité ne garantit pas que deux cœurs physiques restent inoccupés. La modification s’applique aux prochains PWSZ ouverts, pas aux maillages déjà en cours.

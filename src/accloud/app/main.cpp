@@ -28,6 +28,7 @@
 #endif
 
 #include <QGuiApplication>
+#include <QThread>
 #include <QImageReader>
 #include <QLockFile>
 #include <QQmlApplicationEngine>
@@ -399,6 +400,9 @@ ApplicationWindow {
 #else
     engine.rootContext()->setContextProperty("accloudViewer3dEnabled", false);
 #endif
+    const int logicalCores = QThread::idealThreadCount();
+    engine.rootContext()->setContextProperty("accloudAvailableLogicalCores",
+                                             logicalCores > 0 ? logicalCores : 4);
     engine.rootContext()->setContextProperty("sessionImportBridge", &sessionImportBridge);
     engine.rootContext()->setContextProperty("cloudBridge", &cloudBridge);
     engine.rootContext()->setContextProperty("cloudFilesWorkflowBridge", &cloudFilesWorkflowBridge);

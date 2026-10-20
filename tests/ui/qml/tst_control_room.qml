@@ -238,7 +238,7 @@ TestCase {
         window.destroy()
     }
 
-    function test_main_menu_is_grouped_settings_session_help() {
+    function test_main_menu_is_session_settings_help_with_one_grouped_dialog() {
         var window = createQmlObject("../../../ui/qml/MainWindow.qml")
         wait(0)
 
@@ -246,41 +246,124 @@ TestCase {
         var settingsMenu = findObjectByName(window, "menuParametre")
         var sessionMenu = findObjectByName(window, "menuSession")
         var helpMenu = findObjectByName(window, "menuHelp")
+        var preferences = findObjectByName(window, "menuSettingsOpen")
+        var dialog = findObjectByName(window, "settingsDialog")
         verify(menuBar !== null)
         verify(settingsMenu !== null)
         verify(sessionMenu !== null)
         verify(helpMenu !== null)
+        verify(preferences !== null)
+        verify(dialog !== null)
         verify(menuBar.contentChildren !== undefined)
         verify(menuBar.contentChildren.length >= 3)
-        compare(String(menuBar.contentChildren[0].text), "Settings")
-        compare(String(menuBar.contentChildren[1].text), "Session")
+        compare(String(menuBar.contentChildren[0].text), "Session")
+        compare(String(menuBar.contentChildren[1].text), "Settings")
         compare(String(menuBar.contentChildren[2].text), "Help")
+        verify(findObjectByName(window, "menuSettingsInterface") === null)
+        verify(findObjectByName(window, "menuSettingsPrinting") === null)
+        verify(findObjectByName(window, "menuSettingsFilesUpload") === null)
+        verify(findObjectByName(window, "menuSettingsViewer3d") === null)
+        verify(findObjectByName(window, "menuSettingsRender3dWorkers") === null)
+        verify(findObjectByName(window, "menuSettingsRender3dPalette") === null)
+        verify(findObjectByName(window, "render3dWorkersDialog") === null)
 
-        var interfaceMenu = findObjectByName(window, "menuSettingsInterface")
-        var printingMenu = findObjectByName(window, "menuSettingsPrinting")
-        var filesUploadMenu = findObjectByName(window, "menuSettingsFilesUpload")
-        var viewerMenu = findObjectByName(window, "menuSettingsViewer3d")
-        verify(interfaceMenu !== null)
-        verify(printingMenu !== null)
-        verify(filesUploadMenu !== null)
-        verify(viewerMenu !== null)
-        compare(interfaceMenu.title, "Interface")
-        compare(printingMenu.title, "Printing")
-        compare(filesUploadMenu.title, "Files / Upload")
-        compare(viewerMenu.title, "3D Viewer")
-        compare(findObjectByName(window, "menuSettingsRender3dWorkers").enabled, true)
-        compare(findObjectByName(window, "menuSettingsRender3dPalette").enabled, true)
-
-        verify(findObjectByName(window, "menuSessionDetails") === null)
+        verify(findObjectByName(window, "settingsThemePresetCombo") !== null)
+        verify(findObjectByName(window, "settingsLanguageCombo") !== null)
+        verify(findObjectByName(window, "settingsTechnicalDetailsCheckBox") !== null)
+        verify(findObjectByName(window, "settingsDirectDeleteLocalOnFailureCheckBox") !== null)
+        verify(findObjectByName(window, "settingsPwszPreviewCompletionCheckBox") !== null)
+        verify(findObjectByName(window, "settingsPwszPreviewConfirmationCheckBox") !== null)
+        verify(findObjectByName(window, "settingsWorkerRatioCombo") !== null)
+        verify(findObjectByName(window, "settingsRender3dPaletteCombo") !== null)
+        verify(findObjectByName(window, "settingsCloseButton") !== null)
         verify(findObjectByName(window, "menuSessionImportHar") !== null)
+        verify(findObjectByName(window, "menuHelpAbout") !== null)
+        verify(findObjectByName(window, "menuSessionDetails") === null)
         verify(findObjectByName(window, "menuSessionLocation") === null)
         verify(findObjectByName(window, "menuHelpGit") === null)
-        verify(findObjectByName(window, "sessionDetailsDialog") === null)
-        verify(findObjectByName(window, "sessionPathDialog") === null)
-        verify(findObjectByName(window, "gitDialog") === null)
         verify(findObjectByName(window, "menuSettingsSession") === null)
         verify(findObjectByName(window, "menuSettingsMqttAuthMode") === null)
 
+        dialog.open()
+        tryVerify(function() { return dialog.visible }, 1000)
+        dialog.close()
+        window.close()
+        window.destroy()
+    }
+
+    function test_preferences_inline_controls_and_checkbox_alignment() {
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        var dialog = findObjectByName(window, "settingsDialog")
+        verify(dialog !== null)
+        verify(findObjectByName(window, "themeDialog") === null)
+        verify(findObjectByName(window, "languageDialog") === null)
+        verify(findObjectByName(window, "render3dPaletteDialog") === null)
+        var theme = findObjectByName(window, "settingsThemePresetCombo")
+        var accent = findObjectByName(window, "settingsAccentPresetCombo")
+        var language = findObjectByName(window, "settingsLanguageCombo")
+        var palette = findObjectByName(window, "settingsRender3dPaletteCombo")
+        verify(theme !== null && accent !== null && language !== null && palette !== null)
+        dialog.open()
+        tryVerify(function() { return dialog.visible }, 1000)
+        var keys = ["settingsTechnicalDetailsCheckBox", "settingsDirectDeleteLocalOnFailureCheckBox",
+                    "settingsPwszPreviewCompletionCheckBox", "settingsPwszPreviewConfirmationCheckBox"]
+        var left = -1
+        for (var i = 0; i < keys.length; ++i) {
+            var check = findObjectByName(window, keys[i])
+            verify(check !== null)
+            verify(check.indicator !== null)
+            compare(Math.round(check.indicator.y + check.indicator.height / 2),
+                    Math.round(check.height / 2))
+            if (left < 0)
+                left = Math.round(check.indicator.x)
+            compare(Math.round(check.indicator.x), left)
+        }
+        dialog.close()
+        window.close()
+        window.destroy()
+    }
+
+    function test_theme_and_accent_update_all_loaded_controls_without_reopening() {
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        var dialog = findObjectByName(window, "settingsDialog")
+        var themeCombo = findObjectByName(window, "settingsThemePresetCombo")
+        var accentCombo = findObjectByName(window, "settingsAccentPresetCombo")
+        var tabs = findObjectByName(window, "controlRoomTabs")
+        verify(dialog !== null && themeCombo !== null && accentCombo !== null && tabs !== null)
+        dialog.open()
+        tryVerify(function() { return dialog.visible }, 1000)
+        compare(normalizedColor(dialog.background.color), "#fffdf7")
+        compare(normalizedColor(themeCombo.background.color), "#fffaf0")
+        compare(normalizedColor(tabs.panelColor), "#fffaf0")
+
+        var darkIndex = themeCombo.find("Dark")
+        verify(darkIndex >= 0)
+        themeCombo.currentIndex = darkIndex
+        themeCombo.activated(darkIndex)
+        compare(dialog.visible, true)
+        tryVerify(function() { return normalizedColor(dialog.background.color) === "#323842" }, 1000)
+        compare(normalizedColor(themeCombo.background.color), "#2a2f36")
+        compare(normalizedColor(tabs.panelColor), "#2a2f36")
+
+        var coralIndex = accentCombo.find("Coral")
+        verify(coralIndex >= 0)
+        accentCombo.currentIndex = coralIndex
+        accentCombo.activated(coralIndex)
+        compare(window.persistedAccentName, "Coral")
+        // An already-created focused control uses the new accent, not a cached JS value.
+        themeCombo.forceActiveFocus()
+        tryVerify(function() { return normalizedColor(themeCombo.background.border.color) === "#c5644f" }, 1000)
+
+        var lightIndex = themeCombo.find("WarmLight")
+        verify(lightIndex >= 0)
+        themeCombo.currentIndex = lightIndex
+        themeCombo.activated(lightIndex)
+        compare(dialog.visible, true)
+        compare(normalizedColor(dialog.background.color), "#fffdf7")
+        compare(normalizedColor(themeCombo.background.color), "#fffaf0")
+        compare(normalizedColor(tabs.panelColor), "#fffaf0")
+        window.applyThemeSelection("WarmLight", "Teal", false)
+        dialog.close()
         window.close()
         window.destroy()
     }
@@ -314,7 +397,7 @@ TestCase {
         verify(dialogLoader !== null)
         compare(tabs.count, 4)
         compare(filesPage.viewerEnabled, true)
-        compare(filesPage.render3dWorkerCount, 4)
+        compare(filesPage.render3dWorkerCount, 6)
         compare(filesPage.render3dPalettePreset, "technical_cyan")
         compare(normalizedColor(filesPage.render3dPartColor), "#55b7c6")
         compare(normalizedColor(filesPage.render3dBackgroundColor), "#171a1f")
@@ -326,7 +409,7 @@ TestCase {
         window.destroy()
     }
 
-    function test_render3d_worker_setting_defaults_to_four_and_persists_bounds() {
+    function test_render3d_worker_cpu_ratios_preserve_legacy_setting_and_follow_core_count() {
         uiSettingsBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
                                                'property var values: ({});' +
                                                'function getString(key, fallback) {' +
@@ -335,53 +418,88 @@ TestCase {
                                                'function setString(key, value) { values[key] = value }' +
                                                'function sync() {}' +
                                                '}', this, "render3dWorkerSettingsMock")
-
         var window = createQmlObject("../../../ui/qml/MainWindow.qml", {
-            "viewer3dEnabled": true
+            "viewer3dEnabled": true, "availableLogicalCores": 8
         })
         wait(0)
-        compare(window.render3dWorkerCount, 4)
-        compare(String(uiSettingsBridge.values["render3d.workerCount"]), "4")
-
-        var filesPage = findObjectByName(window, "cloudFilesPage")
-        var viewerMenu = findObjectByName(window, "menuSettingsViewer3d")
-        var menuItem = findObjectByName(window, "menuSettingsRender3dWorkers")
-        var dialog = findObjectByName(window, "render3dWorkersDialog")
-        var spin = findObjectByName(window, "render3dWorkersSpin")
-        verify(filesPage !== null)
-        verify(viewerMenu !== null)
-        verify(menuItem !== null)
-        verify(dialog !== null)
-        verify(spin !== null)
-        compare(filesPage.render3dWorkerCount, 4)
-        compare(window.viewer3dEnabled, true)
-        compare(menuItem.enabled, true)
-        compare(spin.from, 1)
-        compare(spin.to, 16)
-
-        window.persistRender3dWorkerCount(12)
-        compare(window.render3dWorkerCount, 12)
-        compare(filesPage.render3dWorkerCount, 12)
-        compare(String(uiSettingsBridge.values["render3d.workerCount"]), "12")
-
-        window.persistRender3dWorkerCount(0)
-        compare(window.render3dWorkerCount, 1)
+        compare(window.render3dWorkerCount, 6)
+        compare(window.render3dWorkerRatio, 0)
+        compare(window.minimumRender3dWorkers(), 6)
+        compare(window.maximumRender3dWorkers(), 6)
+        compare(window.workerCountForRatio(1), 6)
+        compare(window.workerCountForRatio(4), 6)
+        var combo = findObjectByName(window, "settingsWorkerRatioCombo")
+        var dialog = findObjectByName(window, "settingsDialog")
+        verify(combo !== null)
+        compare(combo.count, 1) // Four equivalent ratios collapse into one option.
+        dialog.open()
+        wait(0)
+        combo.activated(0)
+        compare(window.render3dWorkerRatio, 4)
+        compare(window.render3dWorkerCount, 6)
+        compare(String(uiSettingsBridge.values["render3d.workerRatio"]), "4")
+        compare(String(uiSettingsBridge.values["render3d.workerCount"]), "6")
+        dialog.close()
         window.persistRender3dWorkerCount(99)
-        compare(window.render3dWorkerCount, 16)
+        compare(window.render3dWorkerCount, 6)
         window.close()
         window.destroy()
 
         uiSettingsBridge.values["render3d.workerCount"] = "7"
+        uiSettingsBridge.values["render3d.workerRatio"] = ""
         var restoredWindow = createQmlObject("../../../ui/qml/MainWindow.qml", {
-            "viewer3dEnabled": true
+            "viewer3dEnabled": true, "availableLogicalCores": 12
         })
         wait(0)
         compare(restoredWindow.render3dWorkerCount, 7)
-        var restoredFilesPage = findObjectByName(restoredWindow, "cloudFilesPage")
-        verify(restoredFilesPage !== null)
-        compare(restoredFilesPage.render3dWorkerCount, 7)
+        compare(restoredWindow.render3dWorkerRatio, 0)
+        compare(restoredWindow.minimumRender3dWorkers(), 6)
+        compare(restoredWindow.maximumRender3dWorkers(), 10)
+        compare(restoredWindow.workerCountForRatio(1), 6)
+        compare(restoredWindow.workerCountForRatio(2), 6)
+        compare(restoredWindow.workerCountForRatio(3), 8)
+        compare(restoredWindow.workerCountForRatio(4), 10)
+        compare(restoredWindow.workerRatioOptions().length, 3)
+        compare(restoredWindow.workerDisplayOptions().length, 4)
+        compare(restoredWindow.workerDisplayOptions()[0].value, 0)
+        compare(restoredWindow.workerDisplayOptions()[0].workers, 7)
         restoredWindow.close()
         restoredWindow.destroy()
+
+        uiSettingsBridge.values["render3d.workerRatio"] = "3"
+        var changedMachineWindow = createQmlObject("../../../ui/qml/MainWindow.qml", {
+            "viewer3dEnabled": true, "availableLogicalCores": 16
+        })
+        wait(0)
+        compare(changedMachineWindow.render3dWorkerRatio, 3)
+        compare(changedMachineWindow.render3dWorkerCount, 11)
+        changedMachineWindow.persistRender3dWorkerRatio(4)
+        compare(changedMachineWindow.render3dWorkerCount, 14)
+        changedMachineWindow.close()
+        changedMachineWindow.destroy()
+
+        uiSettingsBridge.values["render3d.workerRatio"] = "4"
+        var highCoreWindow = createQmlObject("../../../ui/qml/MainWindow.qml", {
+            "viewer3dEnabled": true, "availableLogicalCores": 32
+        })
+        wait(0)
+        compare(highCoreWindow.render3dWorkerCount, 30)
+        compare(highCoreWindow.workerCountForRatio(1), 8)
+        compare(highCoreWindow.workerCountForRatio(2), 15)
+        compare(highCoreWindow.workerCountForRatio(3), 23)
+        compare(highCoreWindow.workerCountForRatio(4), 30)
+        compare(highCoreWindow.workerRatioOptions().length, 4)
+        highCoreWindow.close()
+        highCoreWindow.destroy()
+
+        var smallWindow = createQmlObject("../../../ui/qml/MainWindow.qml", {
+            "viewer3dEnabled": true, "availableLogicalCores": 4
+        })
+        wait(0)
+        compare(smallWindow.maximumRender3dWorkers(), 2)
+        compare(smallWindow.render3dWorkerCount, 2)
+        smallWindow.close()
+        smallWindow.destroy()
     }
 
     function test_render3d_palette_setting_persists_and_propagates_color_pair() {
@@ -405,16 +523,12 @@ TestCase {
         compare(String(uiSettingsBridge.values["render3d.palettePreset"]), "technical_cyan")
 
         var filesPage = findObjectByName(window, "cloudFilesPage")
-        var viewerMenu = findObjectByName(window, "menuSettingsViewer3d")
-        var menuItem = findObjectByName(window, "menuSettingsRender3dPalette")
-        var dialog = findObjectByName(window, "render3dPaletteDialog")
-        var combo = findObjectByName(window, "render3dPaletteCombo")
-        var previewPart = findObjectByName(window, "render3dPalettePreviewPart")
-        var previewBackground = findObjectByName(window, "render3dPalettePreviewBackground")
+        var settingsDialog = findObjectByName(window, "settingsDialog")
+        var combo = findObjectByName(window, "settingsRender3dPaletteCombo")
+        var previewPart = findObjectByName(window, "settingsRender3dPalettePreviewPart")
+        var previewBackground = findObjectByName(window, "settingsRender3dPalettePreviewBackground")
         verify(filesPage !== null)
-        verify(viewerMenu !== null)
-        verify(menuItem !== null)
-        verify(dialog !== null)
+        verify(settingsDialog !== null)
         verify(combo !== null)
         verify(previewPart !== null)
         verify(previewBackground !== null)
@@ -423,17 +537,17 @@ TestCase {
         compare(normalizedColor(filesPage.render3dBackgroundColor), "#171a1f")
 
 
-        dialog.prepare()
+        settingsDialog.open()
         wait(0)
         compare(combo.count, 5)
-        compare(dialog.pendingIndex, 0)
+        compare(combo.currentIndex, 0)
         compare(normalizedColor(previewPart.color), "#55b7c6")
         compare(normalizedColor(previewBackground.color), "#171a1f")
-
-        dialog.pendingIndex = 3
+        combo.activated(3)
         wait(0)
         compare(normalizedColor(previewPart.color), "#ff7a66")
         compare(normalizedColor(previewBackground.color), "#111827")
+        settingsDialog.close()
 
         window.persistRender3dPalettePreset("night_coral")
         compare(window.render3dPalettePreset, "night_coral")
@@ -2825,14 +2939,14 @@ TestCase {
         compare(String(uiSettingsBridge.directCleanupFallback), "false")
         compare(window.directDeleteLocalOnFailureEnabled, false)
 
-        var menuItem = findObjectByName(window, "menuSettingsDirectDeleteLocalOnFailure")
-        verify(menuItem !== null)
-        compare(menuItem.checked, false)
+        var cleanupCheckBox = findObjectByName(window, "settingsDirectDeleteLocalOnFailureCheckBox")
+        verify(cleanupCheckBox !== null)
+        compare(cleanupCheckBox.checked, false)
 
         window.persistDirectPrintFailureCleanup(true)
         compare(window.directDeleteLocalOnFailureEnabled, true)
         compare(String(uiSettingsBridge.values["printing.directDeleteLocalOnFailure"]), "true")
-        compare(menuItem.checked, true)
+        compare(cleanupCheckBox.checked, true)
         window.close()
         window.destroy()
 
@@ -2841,6 +2955,54 @@ TestCase {
         tryCompare(restoredWindow, "directDeleteLocalOnFailureEnabled", true, 1000)
         restoredWindow.close()
         restoredWindow.destroy()
+    }
+
+    function test_settings_dialog_checkbox_bindings_and_viewer_availability() {
+        uiSettingsBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
+                                               'property var values: ({});' +
+                                               'function getString(key, fallback) {' +
+                                               '  return values[key] !== undefined ? values[key] : fallback' +
+                                               '}' +
+                                               'function setString(key, value) { values[key] = value }' +
+                                               'function sync() {}' +
+                                               '}', this, "settingsDialogMock")
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml", {"viewer3dEnabled": false})
+        wait(0)
+        var details = findObjectByName(window, "settingsTechnicalDetailsCheckBox")
+        var failure = findObjectByName(window, "settingsDirectDeleteLocalOnFailureCheckBox")
+        var completion = findObjectByName(window, "settingsPwszPreviewCompletionCheckBox")
+        var confirmation = findObjectByName(window, "settingsPwszPreviewConfirmationCheckBox")
+        var combo = findObjectByName(window, "settingsWorkerRatioCombo")
+        var paletteCombo = findObjectByName(window, "settingsRender3dPaletteCombo")
+        verify(details !== null)
+        verify(failure !== null)
+        verify(completion !== null)
+        verify(confirmation !== null)
+        verify(combo !== null)
+        verify(paletteCombo !== null)
+        compare(details.checked, false)
+        compare(failure.checked, false)
+        compare(completion.checked, true)
+        compare(confirmation.checked, true)
+        compare(combo.enabled, false)
+        compare(paletteCombo.enabled, false)
+
+        window.persistCloudFileDetailsSetting(true)
+        window.persistDirectPrintFailureCleanup(true)
+        window.pwszPreviewCompletionEnabled = false
+        window.persistPwszUploadSetting("cloud.upload.completePwszPreview2", false)
+        window.pwszPreviewConfirmationEnabled = false
+        window.persistPwszUploadSetting("cloud.upload.confirmPwszPreview2", false)
+        compare(details.checked, true)
+        compare(failure.checked, true)
+        compare(completion.checked, false)
+        compare(confirmation.checked, false)
+        compare(String(uiSettingsBridge.values["ui.cloudFiles.showAdvancedDetails"]), "true")
+        compare(String(uiSettingsBridge.values["printing.directDeleteLocalOnFailure"]), "true")
+        compare(String(uiSettingsBridge.values["cloud.upload.completePwszPreview2"]), "false")
+        compare(String(uiSettingsBridge.values["cloud.upload.confirmPwszPreview2"]), "false")
+        window.close()
+        window.destroy()
     }
 
     function test_failed_direct_print_cleanup_uses_semantic_workflow_notices() {

@@ -3,7 +3,6 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Accloud.Render3D 1.0
 import "../components"
-import "../components/Theme.js" as Theme
 
 AppPageFrame {
     id: root

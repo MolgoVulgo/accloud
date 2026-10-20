@@ -8,6 +8,7 @@
 #include <functional>
 #include <cstdint>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace accloud::render3d {
@@ -23,7 +24,18 @@ enum class CutSurfaceBoundary {
 };
 
 inline constexpr std::size_t kMinimumMeshWorkerCount = 1;
-inline constexpr std::size_t kMaximumMeshWorkerCount = 16;
+// Keep two logical CPU slots outside the mesh pool when the platform reports
+// them; on very small machines at least one mesh worker remains available.
+[[nodiscard]] inline constexpr std::size_t maximumMeshWorkerCountForCores(
+    std::size_t logicalCores) noexcept {
+  return logicalCores > 2 ? logicalCores - 2 : 1;
+}
+
+[[nodiscard]] inline std::size_t maximumMeshWorkerCount() noexcept {
+  const auto detected = static_cast<std::size_t>(std::thread::hardware_concurrency());
+  // Unknown topology: avoid assuming free cores.
+  return maximumMeshWorkerCountForCores(detected == 0 ? 3 : detected);
+}
 
 struct MeshBuildOptions {
   double pitchXMm = 1.0;
@@ -36,8 +48,9 @@ struct MeshBuildOptions {
   // is extruded until the next sampled layer, so the model keeps its original
   // Z extent at reduced geometric fidelity.
   std::size_t layerStride = 1;
-  // Number of chunk workers. Four is the application and core default; callers
-  // may persist any value in the supported 1..16 range.
+  // Number of chunk workers. Four is the pure-core default; desktop preferences
+  // use six on >=8-core machines. Callers
+  // are bounded at runtime to reserve two logical CPU slots.
   std::size_t workerCount = 4;
 };
 

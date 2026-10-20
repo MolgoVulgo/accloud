@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import Accloud.Models 1.0
-import "../components/Theme.js" as Theme
+
 import "../components"
 
 Item {
@@ -134,8 +134,6 @@ Item {
         objectName: "printerHistoryModel"
     }
 
-
-
     function hasCloudBridge() {
         return (typeof cloudBridge !== "undefined")
                 && cloudBridge !== null
@@ -225,7 +223,6 @@ Item {
         return name.slice(dot + 1).toLowerCase()
     }
 
-
     function uploadIsReady(uploadStatus, gcodeId) {
         var normalizedGcodeId = String(gcodeId || "").trim()
         return Number(uploadStatus) === 1
@@ -284,8 +281,6 @@ Item {
         return Qt.formatDateTime(d, "yyyy-MM-dd hh:mm")
     }
 
-
-
     function hasPrinterJob(printer) {
         if (printer === null || printer === undefined)
             return false
@@ -308,11 +303,9 @@ Item {
         return false
     }
 
-
     function printerTabTitle(printer) {
         return String(printer && printer.name !== undefined ? printer.name : "-")
     }
-
 
     function canStartFromPrinterState(printer) {
         if (!printer)
@@ -442,7 +435,6 @@ Item {
         return null
     }
 
-
     function loadCloudFileDetailsById(fileId) {
         var normalizedFileId = String(fileId || "").trim()
         if (normalizedFileId.length === 0)
@@ -480,7 +472,6 @@ Item {
         }
         return null
     }
-
 
     function activeProjectFromHistory() {
         for (var i = 0; i < printerHistoryModel.count; ++i) {
@@ -2387,7 +2378,6 @@ Item {
             var list = projects !== undefined ? projects : []
             setLiveProjectFromList(list)
             mergeRecentJobsCard(list)
-
 
             root.loadingPrinterDetails = false
             root.loadingPrinterHistory = false
