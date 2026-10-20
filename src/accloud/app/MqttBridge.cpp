@@ -45,6 +45,10 @@ bool MqttBridge::connected() const {
     return m_connected;
 }
 
+bool MqttBridge::authenticationRejected() const {
+    return m_authenticationRejected;
+}
+
 QString MqttBridge::subscribedTopics() const {
     QStringList out;
     out.reserve(static_cast<int>(m_subscribedTopics.size()));
@@ -121,6 +125,13 @@ void MqttBridge::setConnectionState(const QString& value) {
     }
     m_connectionState = value;
     emit connectionStateChanged();
+}
+
+void MqttBridge::setAuthenticationRejected(bool value) {
+    if (m_authenticationRejected == value)
+        return;
+    m_authenticationRejected = value;
+    emit authenticationRejectedChanged();
 }
 
 void MqttBridge::updateConnected(bool value) {

@@ -587,6 +587,16 @@ ApplicationWindow {
             root.statusText = qsTr("Active session. %1").arg(backendStatusText(message, qsTr("Ready.")))
             sessionDialog.mandatoryMode = false
             sessionDialog.close()
+            // Retry only after successful HAR commit, and only if the broker rejected auth.
+            if (typeof mqttBridge !== "undefined" && mqttBridge !== null
+                    && mqttBridge.authenticationRejected === true
+                    && typeof mqttBridge.ensureAutoConnected === "function") {
+                Qt.callLater(function() {
+                    if (typeof mqttBridge !== "undefined" && mqttBridge !== null
+                            && typeof mqttBridge.ensureAutoConnected === "function")
+                        mqttBridge.ensureAutoConnected()
+                })
+            }
         }
         onImportSkipped: {
             root.statusText = qsTr("No active cloud session. Import a HAR from the Session menu to connect.")
@@ -992,6 +1002,44 @@ ApplicationWindow {
                             text: qsTr("Upload Dialog")
                             variant: "primary"
                             onClicked: root.openUploadDialog()
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                id: mqttAuthenticationBanner
+                objectName: "mqttAuthenticationBanner"
+                Layout.fillWidth: true
+                Layout.preferredHeight: visible ? 62 : 0
+                visible: (typeof mqttBridge !== "undefined"
+                          && mqttBridge !== null
+                          && mqttBridge.authenticationRejected === true)
+                radius: Theme.radiusControl
+                color: Theme.bgSurface
+                border.width: Theme.borderWidth
+                border.color: Theme.borderDefault
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    spacing: Theme.gapRow
+
+                    Text {
+                        objectName: "mqttAuthenticationExplanation"
+                        Layout.fillWidth: true
+                        color: Theme.fgPrimary
+                        wrapMode: Text.WordWrap
+                        text: qsTr("MQTT authorization was refused. Your HAR session may need renewal.")
+                    }
+                    AppButton {
+                        objectName: "mqttReimportHarButton"
+                        compact: true
+                        text: qsTr("Reimport HAR...")
+                        onClicked: {
+                            sessionDialog.mandatoryMode = false
+                            sessionDialog.startupMessage = ""
+                            sessionDialog.open()
                         }
                     }
                 }

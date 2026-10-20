@@ -419,7 +419,9 @@ struct MqttSessionManager::Impl {
             }
             observability::MqttTelemetry::instance().incrementConnectErrors();
             lastDisconnectFromClientError = true;
-            publishState(MqttSessionState::Error, "client_error");
+            // Only a broker NotAuthorized verdict requests HAR recovery.
+            publishState(MqttSessionState::Error,
+                         e == QMqttClient::NotAuthorized ? "not_authorized" : "client_error");
             logging::warn("cloud", "mqtt_session", "client_error",
                           "MQTT client error signaled",
                           {

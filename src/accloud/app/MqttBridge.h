@@ -24,6 +24,8 @@ class MqttBridge : public QObject {
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString connectionState READ connectionState NOTIFY connectionStateChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
+    Q_PROPERTY(bool authenticationRejected READ authenticationRejected
+               NOTIFY authenticationRejectedChanged)
     Q_PROPERTY(QString subscribedTopics READ subscribedTopics NOTIFY subscribedTopicsChanged)
     Q_PROPERTY(QStringList receivedTopics READ receivedTopics NOTIFY receivedTopicsChanged)
     Q_PROPERTY(quint64 messageTick READ messageTick NOTIFY messageTickChanged)
@@ -46,6 +48,7 @@ public:
     QString status() const;
     QString connectionState() const;
     bool connected() const;
+    bool authenticationRejected() const;
     QString subscribedTopics() const;
     QStringList receivedTopics() const;
     quint64 messageTick() const;
@@ -78,6 +81,7 @@ signals:
     void statusChanged();
     void connectionStateChanged();
     void connectedChanged();
+    void authenticationRejectedChanged();
     void subscribedTopicsChanged();
     void receivedTopicsChanged();
     void messageTickChanged();
@@ -110,11 +114,13 @@ private:
     void setConnectionState(const QString& value);
     void appendRawLine(const QString& line);
     void updateConnected(bool value);
+    void setAuthenticationRejected(bool value);
     void refreshTelemetrySnapshot();
 
     QString m_status;
     QString m_connectionState;
     bool m_connected{false};
+    bool m_authenticationRejected{false};
     std::set<std::string> m_subscribedTopics;
     std::set<std::string> m_receivedTopicSet;
     std::deque<std::pair<QString, QString>> m_topicMessageHistory;

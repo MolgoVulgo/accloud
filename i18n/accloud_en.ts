@@ -2228,6 +2228,14 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <source>Saved custom setting — %1 workers</source>
             <translation>Saved custom setting — %1 workers</translation>
         </message>
+        <message>
+            <source>MQTT authorization was refused. Your HAR session may need renewal.</source>
+            <translation>MQTT authorization was refused. Your HAR session may need renewal.</translation>
+        </message>
+        <message>
+            <source>Reimport HAR...</source>
+            <translation>Reimport HAR...</translation>
+        </message>
     </context>
     <context>
         <name>MqttPage</name>

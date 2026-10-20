@@ -60,6 +60,19 @@ For a broker authentication rejection, the `mqtt_profile/profile_prepared` event
 An internal Android credential generator exists for compatibility analysis. The production profile remains `slicer`; it must not be switched to `android` or automatic selection by cleanup or standardisation work.
 
 
+## Broker rejection recovery in the desktop UI
+
+When the MQTT broker explicitly returns `NotAuthorized`, the session manager publishes the
+`not_authorized` reason and `MqttBridge.authenticationRejected` becomes true. The main window,
+including production mode, shows a non-blocking warning with **Reimport HAR...**. HTTP may
+still be valid: this warning does not prove token expiry. Other client errors do not activate
+it, and the saved session is never automatically removed.
+
+After a **successful** HAR import following this rejection, the UI requests a new MQTT auto-
+connection using the updated stored session. Dismissing, skipping or failing an import does
+not retry. The banner clears at the beginning of the next connection attempt and returns
+only if the broker refuses it again. Broker, TLS, slicer and reconnect policy are unchanged.
+
 ## Implementation ownership
 
 `MqttBridge` is a stable Qt/QML facade, not a protocol monolith. Its implementation is compiled from `ACCLOUD_MQTT_BRIDGE_SOURCES`:

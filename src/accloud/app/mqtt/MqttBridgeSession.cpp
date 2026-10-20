@@ -231,6 +231,13 @@ void MqttBridge::initializeSessionCallbacks() {
     manager.setCallbacks({
         .onStateChanged = [this](mqtt::core::MqttSessionState state, const std::string& reason) {
             updateConnected(state == mqtt::core::MqttSessionState::Connected);
+            if (reason == "not_authorized") {
+                setAuthenticationRejected(true);
+            } else if (state == mqtt::core::MqttSessionState::Connecting
+                       || state == mqtt::core::MqttSessionState::Connected) {
+                // A new attempt clears the previous refusal; a new refusal can raise it again.
+                setAuthenticationRejected(false);
+            }
             setConnectionState(toUiConnectionState(state));
             setStatus(QString::fromStdString(reason));
         },

@@ -2382,6 +2382,14 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>Saved custom setting — %1 workers</source>
             <translation>Réglage personnalisé conservé — %1 workers</translation>
         </message>
+        <message>
+            <source>MQTT authorization was refused. Your HAR session may need renewal.</source>
+            <translation>L&#x27;autorisation MQTT a été refusée. Votre session HAR peut nécessiter un renouvellement.</translation>
+        </message>
+        <message>
+            <source>Reimport HAR...</source>
+            <translation>Réimporter HAR…</translation>
+        </message>
     </context>
     <context>
         <name>MqttPage</name>

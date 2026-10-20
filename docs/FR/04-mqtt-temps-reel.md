@@ -60,6 +60,20 @@ En cas de refus d'authentification du broker, l'événement `mqtt_profile/profil
 Un générateur Android interne existe pour l'analyse de compatibilité. Le profil production reste `slicer` ; une opération de nettoyage ou de standardisation ne doit pas le remplacer par `android` ou un mode automatique.
 
 
+## Récupération après un refus du broker dans l'interface desktop
+
+Lorsque le broker refuse explicitement l'accès avec `NotAuthorized`, le gestionnaire publie
+le motif `not_authorized` et `MqttBridge.authenticationRejected` devient vrai. La fenêtre
+principale, même en production, affiche une notification non bloquante et l'action
+**Réimporter HAR…**. Le succès HTTP ne démontre pas la validité du jeton MQTT, et le refus ne
+prouve pas son expiration. Les autres erreurs MQTT n'affichent pas cet avertissement.
+La session persistée n'est jamais effacée automatiquement.
+
+Après un import HAR **réussi** dans cet état, l'interface demande une nouvelle connexion
+MQTT avec la session actualisée. Fermer, passer ou échouer l'import ne relance pas la
+connexion. La notification disparaît au début d'une nouvelle tentative et ne revient qu'en
+cas de nouveau refus. Broker, TLS, slicer et stratégie de reconnexion restent inchangés.
+
 ## Propriété de l'implémentation
 
 `MqttBridge` est une façade Qt/QML stable, pas un monolithe protocolaire. Son implémentation est compilée depuis `ACCLOUD_MQTT_BRIDGE_SOURCES` :

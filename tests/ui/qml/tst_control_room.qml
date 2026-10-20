@@ -1819,6 +1819,65 @@ TestCase {
         page.destroy()
     }
 
+    function test_mqtt_auth_rejection_offers_har_reimport_and_retries_after_import() {
+        mqttBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
+                                        'property bool connected: false;' +
+                                        'property bool authenticationRejected: false;' +
+                                        'property int ensureCalls: 0;' +
+                                        'function ensureAutoConnected() {' +
+                                        '  ensureCalls += 1; authenticationRejected = false; return true;' +
+                                        '}' +
+                                        '}', this, "mqttAuthRecoveryMock")
+        sessionImportBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
+                                                 'function checkStartup() {' +
+                                                 '  return { sessionExists: true, connectionOk: true, message: "ok" };' +
+                                                 '}' +
+                                                 '}', this, "mqttAuthRecoverySessionMock")
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        wait(0)
+        var banner = findObjectByName(window, "mqttAuthenticationBanner")
+        var button = findObjectByName(window, "mqttReimportHarButton")
+        var dialog = findObjectByName(window, "sessionSettingsDialog")
+        verify(banner !== null)
+        verify(button !== null)
+        verify(dialog !== null)
+        compare(banner.visible, false)
+        compare(mqttBridge.ensureCalls, 1)
+        mqttBridge.authenticationRejected = true
+        wait(0)
+        compare(banner.visible, true)
+        button.clicked()
+        wait(0)
+        compare(dialog.visible, true)
+        compare(dialog.mandatoryMode, false)
+        // Only successful import should retry; dismissing the prompt never does.
+        dialog.importCompleted("session updated")
+        wait(0)
+        compare(mqttBridge.ensureCalls, 2)
+        compare(banner.visible, false)
+        window.close()
+        window.destroy()
+    }
+
+    function test_mqtt_auth_recovery_is_visible_in_prod_and_ignores_other_errors() {
+        accloudProdUi = true
+        mqttBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
+                                        'property bool connected: false;' +
+                                        'property bool authenticationRejected: false;' +
+                                        'property string status: "client_error";' +
+                                        'function ensureAutoConnected() { return false; }' +
+                                        '}', this, "mqttOtherErrorMock")
+        var window = createQmlObject("../../../ui/qml/MainWindow.qml")
+        var banner = findObjectByName(window, "mqttAuthenticationBanner")
+        verify(banner !== null)
+        compare(banner.visible, false)
+        mqttBridge.authenticationRejected = true
+        wait(0)
+        compare(banner.visible, true)
+        window.close()
+        window.destroy()
+    }
+
     function test_mqtt_tab_stays_alive_when_connect_handler_navigates_to_logs() {
         mqttBridge = Qt.createQmlObject('import QtQuick 2.15; QtObject {' +
                                          'property var navigationTabs: null;' +
