@@ -1,7 +1,7 @@
 pkgname=anycubic-cloud-manager-v3
-pkgver=1.0.0rc2
+pkgver=1.0.0rc2.5
 pkgrel=1
-_tag="1.0.0-RC.2"
+_tag="1.0.0-rc.2.5"
 pkgdesc="accloud — independent resin-cloud manager (Qt6/QML)"
 arch=('x86_64')
 url="https://github.com/MolgoVulgo/accloud"
@@ -13,7 +13,7 @@ source=(
   'acm.png'
 )
 sha256sums=(
-  '459876d5c1b5f44106ab5df0ae4b1a4500e6ce87b2c573c08f1472157204c04c'
+  '9b1c3c78811b449ff48851eea6f72ba85240ff6f50ce6c22e161fa1556b766db'
   'ce5e113f3fa599dc335c5c8d8c4c8cc4b8f64f8887a2a0aba9a40da17c03e622'
 )
 
@@ -23,7 +23,7 @@ build() {
     -DACCLOUD_ENABLE_QT=ON -DACCLOUD_REQUIRE_QT=ON \
     -DACCLOUD_DEBUG=OFF -DACCLOUD_ENABLE_EXPERIMENTAL_VIEWER=ON \
     -DACCLOUD_ENABLE_QML_TESTS=OFF -DACCLOUD_ENABLE_LIVE_TESTS=OFF \
-    -DACCLOUD_VERSION_PRERELEASE=RC.2
+    -DACCLOUD_VERSION_PRERELEASE=rc.2.5
   cmake --build "${srcdir}/build" --target accloud_cli
 }
 
