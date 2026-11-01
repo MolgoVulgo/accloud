@@ -1,34 +1,51 @@
 pkgname=anycubic-cloud-manager-v3
 pkgver=1.0.0rc2.5
 pkgrel=1
-_tag="1.0.0-rc.2.5"
 pkgdesc="accloud — independent resin-cloud manager (Qt6/QML)"
 arch=('x86_64')
 url="https://github.com/MolgoVulgo/accloud"
 license=('MIT')
 depends=('qt6-base' 'qt6-declarative' 'qt6-mqtt' 'openssl' 'zlib' 'libxcrypt')
-makedepends=('cmake' 'ninja' 'pkgconf' 'gcc' 'nlohmann-json' 'qt6-tools')
+makedepends=('cmake' 'ninja' 'pkgconf' 'gcc' 'nlohmann-json' 'qt6-tools' 'curl')
+# Resolve GitHub's designated Latest release, not the newest Git tag.
+_latest_url=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+  -o /dev/null -w '%{url_effective}' "${url}/releases/latest") || return 1
+_tag=${_latest_url#"${url}/releases/tag/"}
+if [[ "${_latest_url}" != "${url}/releases/tag/${_tag}" ||
+      ! "${_tag}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:].]+)?$ ]]; then
+  printf 'Cannot resolve a supported Latest release tag: %s\n' "${_tag}" >&2
+  return 1
+fi
+_source_version=${_tag#v}
+_prerelease=""
+[[ "${_source_version}" == *-* ]] && _prerelease=${_source_version#*-}
+
 source=(
   "accloud-${_tag}.tar.gz::${url}/archive/refs/tags/${_tag}.tar.gz"
   'acm.png'
 )
 sha256sums=(
-  '9b1c3c78811b449ff48851eea6f72ba85240ff6f50ce6c22e161fa1556b766db'
+  'SKIP' # Latest is resolved dynamically; the icon remains checksum-verified.
   'ce5e113f3fa599dc335c5c8d8c4c8cc4b8f64f8887a2a0aba9a40da17c03e622'
 )
 
+pkgver() {
+  # Arch versions cannot contain hyphens.
+  printf '%s\n' "${_source_version}" | sed -E 's/-[Rr][Cc]\./rc/; s/-/./g'
+}
+
 build() {
-  cmake -S "${srcdir}/accloud-${_tag}/accloud" -B "${srcdir}/build" -G Ninja \
+  cmake -S "${srcdir}/accloud-${_source_version}/accloud" -B "${srcdir}/build" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DACCLOUD_ENABLE_QT=ON -DACCLOUD_REQUIRE_QT=ON \
     -DACCLOUD_DEBUG=OFF -DACCLOUD_ENABLE_EXPERIMENTAL_VIEWER=ON \
     -DACCLOUD_ENABLE_QML_TESTS=OFF -DACCLOUD_ENABLE_LIVE_TESTS=OFF \
-    -DACCLOUD_VERSION_PRERELEASE=rc.2.5
+    -DACCLOUD_VERSION_PRERELEASE="${_prerelease}"
   cmake --build "${srcdir}/build" --target accloud_cli
 }
 
 package() {
-  local _repo_dir="${srcdir}/accloud-${_tag}"
+  local _repo_dir="${srcdir}/accloud-${_source_version}"
   install -Dm755 "${srcdir}/build/accloud_cli" "${pkgdir}/opt/accloud/accloud_cli"
   install -d "${pkgdir}/usr/bin"
   ln -s /opt/accloud/accloud_cli "${pkgdir}/usr/bin/accloud_cli"

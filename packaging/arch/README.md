@@ -1,13 +1,17 @@
-# Arch / AUR — accloud 1.0.0-rc.2.5
+# Arch / AUR — accloud Latest
 
 ## Français
 
 Depuis ce répertoire, lancer `makepkg -si` sur Arch Linux. Pour AUR, fournir
 `PKGBUILD`, `acm.png` et `.SRCINFO` généré avec `makepkg --printsrcinfo > .SRCINFO`.
 Le nom historique du paquet est conservé : `anycubic-cloud-manager-v3`.
-La version Arch est `1.0.0rc2.5-1`, le tag source est `1.0.0-rc.2.5`.
-Les deux sources sont vérifiées par SHA-256. Le suffixe CMake `rc.2.5` est
-explicite car le tag source conserve un défaut `rc.1`.
+À chaque invocation de makepkg, le tag est résolu depuis GitHub **Latest**,
+puis la version Arch et le suffixe CMake sont dérivés de ce tag. Latest ne
+signifie pas le dernier tag créé : les préversions non désignées Latest sont exclues.
+Un échec de résolution arrête le chargement du PKGBUILD, sans repli silencieux.
+L’archive dynamique utilise `SKIP` pour son empreinte ; l’icône conserve son SHA-256.
+Cette résolution nécessite curl et le réseau, y compris pour `--printsrcinfo`.
+Un paquet déjà construit ne se met pas à jour automatiquement : relancer makepkg.
 
 L’icône PNG originale est installée dans `/usr/share/pixmaps` sous l’identité
 `org.accloud.App`. Le lanceur et `/usr/bin/accloud_cli` démarrent le même binaire.
@@ -21,9 +25,12 @@ Aucun test live ni validation matérielle ne découle de la construction.
 Run `makepkg -si` from this directory on Arch Linux. For AUR, supply `PKGBUILD`,
 `acm.png`, and `.SRCINFO` generated with `makepkg --printsrcinfo > .SRCINFO`.
 The historical package name remains `anycubic-cloud-manager-v3`.
-Arch version: `1.0.0rc2.5-1`; source tag: `1.0.0-rc.2.5`.
-Both sources have SHA-256 checksums. The explicit CMake suffix `rc.2.5` overrides
-the source tag’s `rc.1` default.
+Each makepkg invocation resolves GitHub’s designated **Latest** release,
+then derives the Arch version and CMake suffix from its tag. This is not the
+newest Git tag; prereleases not designated Latest are excluded. Resolution
+failure stops PKGBUILD loading without a fallback. The dynamic source archive
+uses checksum `SKIP`; the icon retains its SHA-256. curl and network access are
+required even for `--printsrcinfo`. Rebuild to update an installed package.
 
 The original PNG is installed in `/usr/share/pixmaps` as `org.accloud.App`.
 The desktop launcher and `/usr/bin/accloud_cli` use the same executable.

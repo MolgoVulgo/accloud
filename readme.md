@@ -57,4 +57,4 @@ This is **`1.0.0-rc.1`**, not a final `1.0.0` release. The non-live `local-full`
 
 Compatibility evidence is intentionally graded: **confirmed** means the named simulated/local test passed; **expected** means the M7 Pro cloud workflow is the primary design target but awaits controlled hardware verification; **not tested** means other cloud-discovered printer models, firmware variants, or live print/cleanup workflows have no certification. A Wi-Fi connection alone is insufficient: the printer must be reachable through the official Anycubic cloud.
 
-The Arch package targets `1.0.0-rc.2.5` and installs the supplied desktop icon. See [packaging instructions](packaging/arch/README.md) for building and validation limits.
+The Arch package targets the GitHub **Latest** release and installs the supplied desktop icon. See [packaging instructions](packaging/arch/README.md) for building and validation limits.
