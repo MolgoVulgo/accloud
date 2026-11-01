@@ -57,6 +57,10 @@ int RecentJobsModel::count() const {
   return rowCount();
 }
 
+QString RecentJobsModel::lastCompletedFile() const {
+  return m_lastCompletedFile;
+}
+
 QVariantMap RecentJobsModel::get(int row) const {
   if (row < 0 || row >= rowCount()) {
     return {};
@@ -102,6 +106,9 @@ bool RecentJobsModel::replaceOrPatchJobs(const QVariantList& jobs) {
     const QModelIndex changedIndex = index(static_cast<int>(i), 0);
     emit dataChanged(changedIndex, changedIndex, recentJobRoleNames().keys());
     changed = true;
+  }
+  if (changed) {
+    updateLastCompletedFile();
   }
   return changed;
 }
@@ -160,6 +167,7 @@ void RecentJobsModel::clear() {
   m_jobs.clear();
   endResetModel();
   emit countChanged();
+  updateLastCompletedFile();
 }
 
 QVariantMap RecentJobsModel::cleanJob(const QVariantMap& source) {
@@ -234,6 +242,42 @@ void RecentJobsModel::replaceAll(std::vector<QVariantMap> jobs) {
   endResetModel();
   if (previousCount != count()) {
     emit countChanged();
+  }
+  updateLastCompletedFile();
+}
+
+void RecentJobsModel::updateLastCompletedFile() {
+  // Only successfully completed tasks are eligible; row order is not authoritative.
+  QString latestName;
+  qlonglong latestCompletion = -1;
+  qlonglong latestCreated = -1;
+  for (const QVariantMap& job : m_jobs) {
+    if (job.value(QStringLiteral("printStatus")).toInt() != 2) {
+      continue;
+    }
+    QString name = job.value(QStringLiteral("gcodeName")).toString().trimmed();
+    if (name.isEmpty()) {
+      name = job.value(QStringLiteral("currentFile")).toString().trimmed();
+    }
+    if (name.isEmpty()) {
+      continue;
+    }
+    const qlonglong created = job.value(QStringLiteral("createTime")).toLongLong();
+    const qlonglong ended = job.value(QStringLiteral("endTime")).toLongLong();
+    const qlonglong startedAt = created > 0 ? created : -1;
+    // A missing/inconsistent end time cannot promote an older task above a later one.
+    const qlonglong completedAt = ended > 0 && (created <= 0 || ended >= created)
+        ? ended : startedAt;
+    if (latestName.isEmpty() || completedAt > latestCompletion
+        || (completedAt == latestCompletion && startedAt > latestCreated)) {
+      latestName = name;
+      latestCompletion = completedAt;
+      latestCreated = startedAt;
+    }
+  }
+  if (latestName != m_lastCompletedFile) {
+    m_lastCompletedFile = latestName;
+    emit lastCompletedFileChanged();
   }
 }
 

@@ -113,3 +113,8 @@ Le même vocabulaire peut représenter un autoload avant impression ou un refill
 ## Validation live
 
 Un test broker exige session valide, réseau, Qt6 MQTT, compatibilité OpenSSL et matériel mTLS externe. L’état projet publié ne contient volontairement aucune clé privée. Tout prérequis absent est qualifié **environnement incomplet**, jamais validation broker réussie.
+
+
+### Paramètres de tranchage portés par MQTT (patch 0014-3)
+
+Dans `data` d'un événement `print`, `supplies_usage` et `z_thick` sont normalisés comme décimaux positifs ou nuls et finis ; `data.settings` peut transmettre `normal_exposure_time`, `bottom_exposure_time`, `light_off_time` (secondes) et `bottom_layers` (entier). `PrinterRealtimeStore` conserve ces champs sur la tâche concernée lorsque les mises à jour suivantes les omettent. Le bridge desktop ne fournit que les valeurs de la tâche MQTT active de l'imprimante sélectionnée. Une nouvelle tâche n'hérite pas des réglages précédents. Aucun payload brut n'est exposé à QML ; le broker, TLS et les topics existants restent inchangés.

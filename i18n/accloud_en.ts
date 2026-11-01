@@ -2984,6 +2984,62 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <source>warning</source>
             <translation>warning</translation>
         </message>
+        <message>
+            <source>Print preparation</source>
+            <translation>Print preparation</translation>
+        </message>
+        <message>
+            <source>Preparing the printer before the first layer.</source>
+            <translation>Preparing the printer before the first layer.</translation>
+        </message>
+        <message>
+            <source>Start</source>
+            <translation>Start</translation>
+        </message>
+        <message>
+            <source>Waiting for the first layer</source>
+            <translation>Waiting for the first layer</translation>
+        </message>
+        <message>
+            <source>Print in progress</source>
+            <translation>Print in progress</translation>
+        </message>
+        <message>
+            <source>Estimated resin</source>
+            <translation>Estimated resin</translation>
+        </message>
+        <message>
+            <source>Estimated duration</source>
+            <translation>Estimated duration</translation>
+        </message>
+        <message>
+            <source>Layer thickness</source>
+            <translation>Layer thickness</translation>
+        </message>
+        <message>
+            <source>Layer count</source>
+            <translation>Layer count</translation>
+        </message>
+        <message>
+            <source>Normal exposure time</source>
+            <translation>Normal exposure time</translation>
+        </message>
+        <message>
+            <source>Bottom exposure time</source>
+            <translation>Bottom exposure time</translation>
+        </message>
+        <message>
+            <source>Off time</source>
+            <translation>Off time</translation>
+        </message>
+        <message>
+            <source>Bottom layers</source>
+            <translation>Bottom layers</translation>
+        </message>
+        <message>
+            <source>N/A</source>
+            <translation>N/A</translation>
+        </message>
 </context>
     <context>
         <name>PrinterMainPanel</name>
@@ -2992,10 +3048,31 @@ Qt/QML interface for cloud workflow, runtime logs, and 3D rendering.</source>
             <source>sections: printerToolbar | printersTabsBar | deviceDetailsPanel | endpointJsonPanel</source>
             <translation type="unfinished" />
         </message>
+        <message>
+            <source>Local Files</source>
+            <translation>Local Files</translation>
+        </message>
+        <message>
+            <source>Show files stored locally on the printer.</source>
+            <translation>Show files stored locally on the printer.</translation>
+        </message>
     </context>
     <context>
         <name>PrinterPage</name>
         <message>
+            <location filename="../ui/qml/pages/PrinterPage.qml" line="347" />
+            <source>Preparing</source>
+            <translation>Preparing</translation>
+        </message>
+                <message>
+            <source>Printer is preparing or processing an active task.</source>
+            <translation type="unfinished" />
+        </message>
+        <message>
+            <source>A print order is already pending for this printer.</source>
+            <translation type="unfinished" />
+        </message>
+<message>
             <location filename="../ui/qml/pages/PrinterPage.qml" line="16" />
             <source>Ready.</source>
             <translation type="unfinished" />

@@ -126,10 +126,12 @@ def check(root: Path) -> list[str]:
     metadata = (root / 'packaging/org.accloud.App.metainfo.xml').read_text(encoding='utf-8')
     if '<name>accloud</name>' not in metadata or 'github.com/MolgoVulgo/anycubic-cloud-manager</url>' not in metadata:
         errors.append('AppStream metadata has stale public identity/homepage')
-    # Legacy Arch release package is deliberately NOT promoted to 1.0.0-rc.1.
+    # Arch packaging is maintained independently from the candidate runtime.
     arch = (root / 'packaging/arch/PKGBUILD').read_text(encoding='utf-8')
-    if 'pkgver=0.85' not in arch or '_tag="v0.85-1"' not in arch:
-        errors.append('Historic Arch PKGBUILD changed: requires a separately authorized packaging decision')
+    if 'cp -r' in arch and '/resources' in arch:
+        errors.append('Arch package must not copy bundled TLS private material')
+    if 'org.accloud.App.png' not in arch or not (root / 'packaging/arch/acm.png').is_file():
+        errors.append('Arch package is missing its desktop icon')
     return errors
 
 

@@ -73,6 +73,9 @@ public:
     Q_INVOKABLE void disconnectRaw();
     Q_INVOKABLE void clearRaw();
     Q_INVOKABLE QVariantMap suggestedConnection() const;
+    // Live metadata for the current task only, scoped to the specified printer.
+    Q_INVOKABLE QVariantMap activePrintFileParameters(const QString& printerId,
+                                                      const QString& printerKey) const;
     Q_INVOKABLE QString messagesForTopic(const QString& topic) const;
     Q_INVOKABLE bool ensureAutoConnected();
     Q_INVOKABLE void setUiDiagnosticsActive(bool active);

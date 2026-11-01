@@ -1160,6 +1160,38 @@ bool test_cloud_files_workflow_bridge_sequences_delete_requests() {
     return ok;
 }
 
+bool test_remote_print_guard_blocks_active_and_pending_printer() {
+    accloud::PrintWorkflowBridge bridge;
+    const QVariantMap file{{"fileId", "cloud-file"}, {"fileName", "model.pwsz"}};
+    const QVariantMap ready{{"id", "printer-1"}, {"state", "READY"}};
+    bool ok = expect(bridge.evaluateRemotePrintGuard("cloud", ready, file).value("ok").toBool(),
+                     "idle printer remains eligible for cloud printing");
+    const auto assertBlocked = [&](const QVariantMap& extras, const QString& expectedKey,
+                                   const std::string& message) {
+        QVariantMap printer = ready;
+        for (auto it = extras.cbegin(); it != extras.cend(); ++it) printer.insert(it.key(), it.value());
+        const QVariantMap guard = bridge.evaluateRemotePrintGuard("cloud", printer, file);
+        return expect(!guard.value("ok").toBool()
+                          && guard.value("reasonKey").toString() == expectedKey, message);
+    };
+    ok = assertBlocked({{"state", "BUSY"}}, "printer_busy", "busy printer must block printing") && ok;
+    ok = assertBlocked({{"state", "PREPARING"}}, "printer_busy", "preparing printer must block printing") && ok;
+    ok = assertBlocked({{"mqttPrintState", "downloading"}}, "printer_busy", "MQTT download blocks printing") && ok;
+    ok = assertBlocked({{"mqttJobStage", "preheating"}}, "printer_busy", "preheating blocks printing") && ok;
+    ok = assertBlocked({{"reason", "busy"}}, "printer_busy", "busy reason blocks printing") && ok;
+    ok = assertBlocked({{"printStatus", 1}}, "printer_busy", "live print status blocks printing") && ok;
+    ok = assertBlocked({{"projects", QVariantList{QVariantMap{{"printStatus", 1}}}}},
+                       "printer_busy", "active project blocks READY printer") && ok;
+    ok = assertBlocked({{"activeProject", true}}, "printer_busy", "selected printer insights block printing") && ok;
+    ok = assertBlocked({{"pendingPrintOrder", true}}, "printer_pending", "awaiting telemetry blocks duplicate print order") && ok;
+    ok = assertBlocked({{"state", "PRINTING"}}, "printer_printing", "printing still blocked") && ok;
+    ok = assertBlocked({{"state", "OFFLINE"}}, "printer_offline", "offline still blocked") && ok;
+    ok = assertBlocked({{"state", "ERROR"}}, "printer_error", "error still blocked") && ok;
+    ok = expect(bridge.evaluateRemotePrintGuard("cloud", ready, file).value("ok").toBool(),
+                "a new request on an idle printer remains allowed") && ok;
+    return ok;
+}
+
 bool test_thumbnail_dir_defaults_to_local_share_accloud() {
     const std::filesystem::path thumbnailDir = accloud::config::thumbnailDir();
     const std::string dirText = thumbnailDir.generic_string();
@@ -1183,6 +1215,7 @@ int main(int argc, char** argv) {
     ok = test_pending_direct_print_persistence() && ok;
     ok = test_print_workflow_bridge_centralizes_direct_print_persistence() && ok;
     ok = test_print_workflow_bridge_remote_cleanup_and_preparation() && ok;
+    ok = test_remote_print_guard_blocks_active_and_pending_printer() && ok;
     ok = test_cloud_files_workflow_bridge_sequences_delete_requests() && ok;
     ok = test_thumbnail_dir_defaults_to_local_share_accloud() && ok;
     if (!ok) {

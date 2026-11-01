@@ -1,5 +1,6 @@
 import QtQuick 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Controls 2.15
 
 import "../components"
 
@@ -16,6 +17,7 @@ AppPageFrame {
     property var selectedPrinter: null
     property var selectedPrinterDetails: ({})
     property var selectedLiveJobData: ({})
+    property var selectedFileMetadata: ({})
     property bool feedingOperationActive: false
     property int feedingOperationType: 0
     property bool feedingStopInProgress: false
@@ -32,6 +34,8 @@ AppPageFrame {
         root.fleetRevision
         return root.calculateFleetCounts()
     }
+    // A real layer/progress report, not HTTP acceptance or preheat, drives this mode.
+    readonly property bool activePrintVisible: printerDetailPanel.printerInfoMode() === "printing"
 
     signal refreshRequested()
     signal printerSelected(string printerId)
@@ -116,20 +120,62 @@ AppPageFrame {
         Layout.fillHeight: true
         radius: Theme.radiusControl
         color: Theme.bgSurface
-        border.width: Theme.borderWidth
-        border.color: Theme.borderDefault
+        // The classic tab owns the top stroke. A second container top stroke
+        // produced the doubled/broken outline around the active tongue.
+        border.width: 0
 
         ColumnLayout {
             anchors.fill: parent
             spacing: 0
 
-            PrintersTabsBar {
+            RowLayout {
+                id: printerCompactHeader
+                objectName: "printerCompactHeader"
                 Layout.fillWidth: true
-                embeddedInTabsContainer: true
-                printersModel: root.printersModel
-                selectedPrinterId: root.selectedPrinterId
-                tabTitleProvider: root.tabTitleProvider
-                onPrinterSelected: function(printerId) { root.printerSelected(printerId) }
+                Layout.preferredHeight: 42
+                spacing: 8
+
+                PrintersTabsBar {
+                    id: fleetTabs
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    embeddedInTabsContainer: true
+                    printersModel: root.printersModel
+                    selectedPrinterId: root.selectedPrinterId
+                    tabTitleProvider: root.tabTitleProvider
+                    fleetRevision: root.fleetRevision
+                    selectedPrinterSnapshot: root.selectedPrinter
+                    onPrinterSelected: function(printerId) { root.printerSelected(printerId) }
+                }
+
+                AppButton {
+                    objectName: "printerTopLocalFilesButton"
+                    visible: root.selectedPrinter !== null && !root.activePrintVisible
+                    text: qsTr("Local Files")
+                    variant: "primary"
+                    compact: true
+                    enabled: root.selectedPrinter !== null && root.localFilePrintEnabled
+                    disabledStatus: !enabled && root.selectedPrinter
+                                    && String(root.selectedPrinter.state || "").toUpperCase() === "OFFLINE"
+                                    ? "offline" : ""
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 350
+                    ToolTip.text: enabled || String(root.localFilePrintBlockReason || "").trim().length === 0
+                                  ? qsTr("Show files stored locally on the printer.")
+                                  : String(root.localFilePrintBlockReason)
+                    onClicked: {
+                        if (root.localFilePrintEnabled && root.selectedPrinter)
+                            root.localFileRequested(root.selectedPrinterId)
+                    }
+                }
+
+                StatusChip {
+                    id: printerTopStatusChip
+                    objectName: "printerTopStatusChip"
+                    visible: root.selectedPrinter !== null && !root.activePrintVisible
+                    status: printerDetailPanel.printerDisplayStatus()
+                    toneStatus: printerDetailPanel.printerSemanticStatus()
+                }
             }
 
             PrinterDetailPanel {
@@ -142,6 +188,7 @@ AppPageFrame {
                 selectedPrinterId: root.selectedPrinterId
                 selectedPrinterDetails: root.selectedPrinterDetails
                 selectedLiveJobData: root.selectedLiveJobData
+                selectedFileMetadata: root.selectedFileMetadata
                 feedingOperationActive: root.feedingOperationActive
                 feedingOperationType: root.feedingOperationType
                 feedingStopInProgress: root.feedingStopInProgress
@@ -159,6 +206,42 @@ AppPageFrame {
                 onResinFeedRequested: function(printerId, feedType) { root.resinFeedRequested(printerId, feedType) }
                 onResinFeedStopRequested: function(printerId, feedType) { root.resinFeedStopRequested(printerId, feedType) }
             }
+        }
+
+        // Continue the inactive-tab baseline beneath the right-hand actions.
+        Rectangle {
+            objectName: "printerHeaderRightBaseline"
+            x: fleetTabs.x + fleetTabs.width
+            y: printerCompactHeader.height - Theme.tabStrokeWidth
+            width: Math.max(0, parent.width - x)
+            height: Theme.tabStrokeWidth
+            color: Theme.tabBaselineColor
+        }
+
+        // Outline begins below the tab strip and joins the page without a top seam.
+        Rectangle {
+            objectName: "printerPanelLeftOutline"
+            x: 0
+            y: printerCompactHeader.height
+            width: Theme.borderWidth
+            height: Math.max(0, parent.height - y)
+            color: Theme.borderDefault
+        }
+        Rectangle {
+            objectName: "printerPanelRightOutline"
+            anchors.right: parent.right
+            y: printerCompactHeader.height
+            width: Theme.borderWidth
+            height: Math.max(0, parent.height - y)
+            color: Theme.borderDefault
+        }
+        Rectangle {
+            objectName: "printerPanelBottomOutline"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: Theme.borderWidth
+            color: Theme.borderDefault
         }
     }
 }

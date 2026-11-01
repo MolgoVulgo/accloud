@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QString>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -11,6 +12,7 @@ namespace accloud {
 class RecentJobsModel : public QAbstractListModel {
   Q_OBJECT
   Q_PROPERTY(int count READ count NOTIFY countChanged)
+  Q_PROPERTY(QString lastCompletedFile READ lastCompletedFile NOTIFY lastCompletedFileChanged)
 
  public:
   enum Role {
@@ -41,6 +43,7 @@ class RecentJobsModel : public QAbstractListModel {
   [[nodiscard]] QVariant data(const QModelIndex& index, int role) const override;
   [[nodiscard]] QHash<int, QByteArray> roleNames() const override;
   [[nodiscard]] int count() const;
+  [[nodiscard]] QString lastCompletedFile() const;
 
   Q_INVOKABLE QVariantMap get(int row) const;
   Q_INVOKABLE bool replaceOrPatchJobs(const QVariantList& jobs);
@@ -49,6 +52,7 @@ class RecentJobsModel : public QAbstractListModel {
 
  signals:
   void countChanged();
+  void lastCompletedFileChanged();
 
  private:
   [[nodiscard]] static QVariantMap cleanJob(const QVariantMap& source);
@@ -56,8 +60,10 @@ class RecentJobsModel : public QAbstractListModel {
   [[nodiscard]] static QString fingerprint(const QVariantMap& job);
   [[nodiscard]] static QVariant valueForRole(const QVariantMap& job, int role);
   void replaceAll(std::vector<QVariantMap> jobs);
+  void updateLastCompletedFile();
 
   std::vector<QVariantMap> m_jobs;
+  QString m_lastCompletedFile;
 };
 
 }  // namespace accloud

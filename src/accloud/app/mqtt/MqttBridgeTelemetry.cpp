@@ -1,6 +1,7 @@
 #include "app/MqttBridge.h"
 
 #include "app/MqttTailModel.h"
+#include "app/realtime/PrinterRealtimeStore.h"
 #include "app/UiPerfTrace.h"
 #include "app/usecases/cloud/OrderResponseTracker.h"
 #include "infra/mqtt/observability/MqttTelemetry.h"
@@ -58,6 +59,27 @@ QString formatTelemetrySnapshot() {
 
 
 } // namespace
+
+QVariantMap MqttBridge::activePrintFileParameters(const QString& printerId,
+                                                   const QString& printerKey) const {
+    auto& store = realtime::PrinterRealtimeStore::instance();
+    auto snapshot = store.get(printerId.trimmed().toStdString());
+    if (!snapshot.has_value() && !printerKey.trimmed().isEmpty())
+        snapshot = store.get(printerKey.trimmed().toStdString());
+    if (!snapshot.has_value() || !snapshot->activeTaskId.has_value()) return {};
+    const auto it = snapshot->jobs.find(*snapshot->activeTaskId);
+    if (it == snapshot->jobs.end()) return {};
+    const auto& job = it->second;
+    QVariantMap params;
+    params.insert(QStringLiteral("taskId"), QString::fromStdString(job.taskId));
+    if (job.resinUsage.has_value()) params.insert(QStringLiteral("resinUsage"), *job.resinUsage);
+    if (job.layerThickness.has_value()) params.insert(QStringLiteral("layerThickness"), *job.layerThickness);
+    if (job.normalExposureTime.has_value()) params.insert(QStringLiteral("exposureTime"), *job.normalExposureTime);
+    if (job.bottomExposureTime.has_value()) params.insert(QStringLiteral("bottomExposureTime"), *job.bottomExposureTime);
+    if (job.lightOffTime.has_value()) params.insert(QStringLiteral("offTime"), *job.lightOffTime);
+    if (job.bottomLayers.has_value()) params.insert(QStringLiteral("bottomLayers"), *job.bottomLayers);
+    return params;
+}
 
 void MqttBridge::setUiDiagnosticsActive(bool active) {
     if (m_uiDiagnosticsActive == active) {

@@ -1044,6 +1044,120 @@ def check_v1_printer_controls() -> list[str]:
     return issues
 
 
+def check_printer_phase_layout() -> list[str]:
+    """Keep preparation transient and the compact printer header single-row."""
+    issues: list[str] = []
+    details = read_text(QML_ROOT / "pages" / "PrinterDetailPanel.qml")
+    panel = read_text(QML_ROOT / "pages" / "PrinterMainPanel.qml")
+    tabs = read_text(QML_ROOT / "pages" / "PrintersTabsBar.qml")
+    for token in (
+        'function hasStartedPrintLayers() {',
+        'function printerInfoMode() {',
+        'return "preparing"',
+        'objectName: "printerPreparationPanel"',
+        'visible: root.printerInfoMode() === "preparing"',
+        'objectName: "printerActivePrintPanel"',
+        'visible: root.printerInfoMode() === "printing"',
+        '"value": qsTr("Waiting for the first layer")',
+        'visible: !root.embeddedInTabsContainer && root.selectedPrinter !== null',
+    ):
+        if token not in details:
+            issues.append(f"PrinterDetailPanel phase layout missing `{token}`")
+    if '"value": root.layersProgressText(root.selectedPrinter)' in details:
+        issues.append("Preparation steps must not duplicate the active layer counter")
+    for token in (
+        'objectName: "printerCompactHeader"',
+        'objectName: "printerTopLocalFilesButton"',
+        'objectName: "printerTopStatusChip"',
+        'status: printerDetailPanel.printerDisplayStatus()',
+        'visible: root.selectedPrinter !== null && !root.activePrintVisible',
+        'fleetRevision: root.fleetRevision',
+        'border.width: 0',
+        'objectName: "printerHeaderRightBaseline"',
+        'objectName: "printerPanelLeftOutline"',
+        'objectName: "printerPanelRightOutline"',
+        'objectName: "printerPanelBottomOutline"',
+        'onClicked: {',
+        'root.localFileRequested(root.selectedPrinterId)',
+    ):
+        if token not in panel:
+            issues.append(f"PrinterMainPanel compact header missing `{token}`")
+    for required in (
+        "activePrintFileParameters(",
+        "merged.mqttPrintParameters = mqttParams",
+    ):
+        if required not in read_text(QML_ROOT / "pages" / "PrinterPage.qml"):
+            issues.append(f"PrinterPage MQTT file settings bridge missing `{required}`")
+    for required in (
+        "function mqttPrintMetadataText(name)",
+        "var mqttValue = mqttPrintMetadataText(name)",
+    ):
+        if required not in details:
+            issues.append(f"PrinterDetailPanel MQTT metadata projection missing `{required}`")
+    if "test_printer_active_file_mqtt_metadata_precedence_and_reset" not in read_text(REPO_ROOT / "tests/ui/qml/tst_control_room.qml"):
+        issues.append("Missing QML regression for MQTT file metadata and stale-state reset")
+    for token in ('TextMetrics {',
+                  'Math.ceil(printerTabTitleMetrics.advanceWidth)',
+                  'clip: true'):
+        if token not in tabs:
+            issues.append(f"Printer tabs must size/clip full labels with `{token}`")
+    tab_button = read_text(QML_ROOT / "components" / "AppTabButton.qml")
+    for token in ('readonly property int verticalBorderBottomMargin: (checked && connectActiveToPanel',
+                  'z: 1', 'onConnectActiveToPanelChanged: tabStrokeCanvas.requestPaint()'):
+        if token not in tab_button:
+            issues.append(f"Active tab side stroke must attach to panel: `{token}`")
+    for token in (
+        'objectName: "printerActiveFileMetadataCard"',
+        'visible: root.printerInfoMode() === "printing"',
+        'function fileMetadataValue(name)',
+        'function fileMetadataRows(column)',
+        'qsTr("Estimated resin")',
+        'qsTr("Estimated duration")',
+        'qsTr("Normal exposure time")',
+        'qsTr("Bottom exposure time")',
+        'qsTr("Off time")',
+        'return qsTr("N/A")',
+    ):
+        if token not in details:
+            issues.append(f"Printer file parameters missing `{token}`")
+    for token in (
+        'function activeFileMetadataIdentity()',
+        'function matchingActiveCloudFile(files)',
+        'function acceptActiveCloudFileMetadata(files)',
+        'cloudBridge.loadCachedFilesAsync(1, 200)',
+        'selectedFileMetadata: root.activeCloudFileMetadata',
+    ):
+        if token not in read_text(QML_ROOT / "pages" / "PrinterPage.qml"):
+            issues.append(f"Printer cache-only file metadata lookup missing `{token}`")
+    for name in (
+        'test_printer_active_file_parameters_display_and_phase_reset',
+        'test_printer_active_file_cache_matching_never_uses_filename',
+    ):
+        if name not in read_text(REPO_ROOT / "tests/ui/qml/tst_control_room.qml"):
+            issues.append(f"Missing printer file parameters regression `{name}`")
+    if 'visible: root.printerInfoMode() === "preparing"' not in details:
+        issues.append("Printer Functions card must disappear during real print tracking")
+    if 'root.fleetRevision' not in tabs or 'root.selectedPrinterSnapshot' not in tabs:
+        issues.append("Printer tab labels must refresh on fleet and selected telemetry changes")
+    page = read_text(QML_ROOT / "pages" / "PrinterPage.qml")
+    for token in ('function printerTabTitle(printer) {',
+                  'selectedPrinterLiveSnapshot', 'qsTr("%1 %")',
+                  'qsTr("Preparing")', 'qsTr("Offline")'):
+        if token not in page:
+            issues.append(f"Printer fleet tab status missing `{token}`")
+    tests = read_text(REPO_ROOT / "tests" / "ui" / "qml" / "tst_control_room.qml")
+    for name in (
+        'test_printer_preparation_switches_to_print_tracking_only_on_real_progress',
+        'test_printer_compact_header_contains_selected_name_controls_and_status',
+        'test_printer_tabs_report_each_printer_state_and_print_percent_only',
+        'test_printer_tab_full_title_and_attached_side_strokes',
+        'test_printer_functions_card_visibility_and_feeding_modal_ui',
+    ):
+        if name not in tests:
+            issues.append(f"Missing QML regression `{name}`")
+    return issues
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -1066,6 +1180,7 @@ def main() -> int:
     errors.extend(f"- {msg}" for msg in check_residual_ui_debt())
     errors.extend(f"- {msg}" for msg in check_cloud_file_details_contract())
     errors.extend(f"- {msg}" for msg in check_v1_printer_controls())
+    errors.extend(f"- {msg}" for msg in check_printer_phase_layout())
 
     legacy_usage = find_legacy_alias_usage()
     if legacy_usage:
@@ -1090,6 +1205,7 @@ def main() -> int:
     print("- Cloud file deletion sequencing uses the C++ workflow boundary")
     print("- Unsupported rename/viewer surfaces and teardown warnings are guarded")
     print("- Cloud file details keep standard and technical data separated")
+    print("- Printer preparation/printing phases and compact header protected")
     print("- No legacy theme aliases in migrated files")
     return 0
 

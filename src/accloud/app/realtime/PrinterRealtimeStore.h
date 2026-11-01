@@ -21,6 +21,12 @@ struct PrintJobSnapshot {
     std::optional<int> remainingSec;
     std::optional<int> currentLayer;
     std::optional<int> totalLayers;
+    std::optional<double> resinUsage;
+    std::optional<double> layerThickness;
+    std::optional<double> normalExposureTime;
+    std::optional<double> bottomExposureTime;
+    std::optional<double> lightOffTime;
+    std::optional<int> bottomLayers;
     std::optional<int> taskMode;
     std::optional<bool> heatingSkipAllowed;
     std::optional<int> heatingRemainingSec;

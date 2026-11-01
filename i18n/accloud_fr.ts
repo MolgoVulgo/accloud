@@ -3141,6 +3141,62 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>warning</source>
             <translation>avertissement</translation>
         </message>
+        <message>
+            <source>Print preparation</source>
+            <translation>Préparation de l’impression</translation>
+        </message>
+        <message>
+            <source>Preparing the printer before the first layer.</source>
+            <translation>Préparation de l’imprimante avant la première couche.</translation>
+        </message>
+        <message>
+            <source>Start</source>
+            <translation>Démarrage</translation>
+        </message>
+        <message>
+            <source>Waiting for the first layer</source>
+            <translation>En attente de la première couche</translation>
+        </message>
+        <message>
+            <source>Print in progress</source>
+            <translation>Impression en cours</translation>
+        </message>
+        <message>
+            <source>Estimated resin</source>
+            <translation>Résine estimée</translation>
+        </message>
+        <message>
+            <source>Estimated duration</source>
+            <translation>Durée estimée</translation>
+        </message>
+        <message>
+            <source>Layer thickness</source>
+            <translation>Épaisseur de couche</translation>
+        </message>
+        <message>
+            <source>Layer count</source>
+            <translation>Nombre de couches</translation>
+        </message>
+        <message>
+            <source>Normal exposure time</source>
+            <translation>Temps d&#x27;exposition normal</translation>
+        </message>
+        <message>
+            <source>Bottom exposure time</source>
+            <translation>Temps d&#x27;exposition du bas</translation>
+        </message>
+        <message>
+            <source>Off time</source>
+            <translation>Temps libre</translation>
+        </message>
+        <message>
+            <source>Bottom layers</source>
+            <translation>Couches inférieures</translation>
+        </message>
+        <message>
+            <source>N/A</source>
+            <translation>N/A</translation>
+        </message>
 </context>
     <context>
         <name>PrinterMainPanel</name>
@@ -3149,10 +3205,31 @@ Interface Qt/QML pour workflow cloud, logs runtime et rendu 3D.</translation>
             <source>sections: printerToolbar | printersTabsBar | deviceDetailsPanel | endpointJsonPanel</source>
             <translation>sections: printerToolbar | printersTabsBar | deviceDetailsPanel | endpointJsonPanel</translation>
         </message>
+        <message>
+            <source>Local Files</source>
+            <translation>Fichiers locaux</translation>
+        </message>
+        <message>
+            <source>Show files stored locally on the printer.</source>
+            <translation>Afficher les fichiers stockés localement sur l’imprimante.</translation>
+        </message>
     </context>
     <context>
         <name>PrinterPage</name>
         <message>
+            <location filename="../ui/qml/pages/PrinterPage.qml" line="347" />
+            <source>Preparing</source>
+            <translation>Préparation</translation>
+        </message>
+                <message>
+            <source>Printer is preparing or processing an active task.</source>
+            <translation>L’imprimante prépare ou traite déjà une tâche.</translation>
+        </message>
+        <message>
+            <source>A print order is already pending for this printer.</source>
+            <translation>Un ordre d’impression est déjà en attente pour cette imprimante.</translation>
+        </message>
+<message>
             <location filename="../ui/qml/pages/PrinterPage.qml" line="16" />
             <source>Ready.</source>
             <translation>Prêt.</translation>

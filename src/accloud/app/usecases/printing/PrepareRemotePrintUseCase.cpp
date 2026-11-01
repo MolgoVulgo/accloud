@@ -46,6 +46,11 @@ QVariantMap uiPrinterRow(const QVariantMap& printer) {
   row.insert(QStringLiteral("name"), printer.value(QStringLiteral("name"), id));
   row.insert(QStringLiteral("model"), printer.value(QStringLiteral("model")));
   row.insert(QStringLiteral("state"), printer.value(QStringLiteral("state"), QStringLiteral("READY")));
+  for (const QString& key : {QStringLiteral("reason"), QStringLiteral("mqttPrintState"),
+                             QStringLiteral("mqttJobStage"), QStringLiteral("mqttActiveTaskId"),
+                             QStringLiteral("printStatus"), QStringLiteral("projects")}) {
+    if (printer.contains(key)) row.insert(key, printer.value(key));
+  }
   row.insert(QStringLiteral("machineType"), printer.value(QStringLiteral("machineType")));
   return row;
 }
@@ -72,6 +77,34 @@ QVariantMap PrepareRemotePrintUseCase::evaluateGuard(const QString& mode,
   }
   if (state == QStringLiteral("PRINTING")) {
     return blocked(QStringLiteral("printer_printing"), QStringLiteral("Printer is currently printing."));
+  }
+  if (printer.value(QStringLiteral("pendingPrintOrder")).toBool()) {
+    return blocked(QStringLiteral("printer_pending"), QStringLiteral("A print order is already pending for this printer."));
+  }
+  if (printer.value(QStringLiteral("activeProject")).toBool()) {
+    return blocked(QStringLiteral("printer_busy"), QStringLiteral("Printer is preparing or processing an active task."));
+  }
+  const QString reason = printer.value(QStringLiteral("reason")).toString().trimmed().toLower();
+  const QString mqttState = printer.value(QStringLiteral("mqttPrintState")).toString().trimmed().toLower();
+  const QString mqttStage = printer.value(QStringLiteral("mqttJobStage")).toString().trimmed().toLower();
+  static const QSet<QString> kActiveStates{
+      QStringLiteral("busy"), QStringLiteral("preparing"), QStringLiteral("processing"),
+      QStringLiteral("downloading"), QStringLiteral("preheating"), QStringLiteral("monitoring"),
+      QStringLiteral("printing"), QStringLiteral("slicing"), QStringLiteral("starting")};
+  if (kActiveStates.contains(state.toLower()) || kActiveStates.contains(reason)
+      || kActiveStates.contains(mqttState) || kActiveStates.contains(mqttStage)) {
+    return blocked(QStringLiteral("printer_busy"), QStringLiteral("Printer is preparing or processing an active task."));
+  }
+  bool validPrintStatus = false;
+  const int printStatus = printer.value(QStringLiteral("printStatus")).toInt(&validPrintStatus);
+  if (validPrintStatus && printStatus == 1) {
+    return blocked(QStringLiteral("printer_busy"), QStringLiteral("Printer is preparing or processing an active task."));
+  }
+  const QVariantList projects = printer.value(QStringLiteral("projects")).toList();
+  for (const QVariant& projectValue : projects) {
+    if (projectValue.toMap().value(QStringLiteral("printStatus")).toInt() == 1) {
+      return blocked(QStringLiteral("printer_busy"), QStringLiteral("Printer is preparing or processing an active task."));
+    }
   }
   if (state == QStringLiteral("ERROR")) {
     return blocked(QStringLiteral("printer_error"), QStringLiteral("Printer reported an error."));

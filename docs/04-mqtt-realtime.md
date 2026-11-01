@@ -112,3 +112,8 @@ The same vocabulary can represent pre-print autoload or refill during printing. 
 ## Live validation
 
 A broker test requires a valid session, network access, Qt6 MQTT, OpenSSL compatibility and external mTLS material. The published project state intentionally contains no private key. Missing prerequisites are reported as **environment incomplete**, never as a successful broker validation.
+
+
+### Print settings carried by telemetry (patch 0014-3)
+
+Within a `print` event's `data`, `supplies_usage` and `z_thick` are extracted as non-negative finite decimals; `data.settings` may provide `normal_exposure_time`, `bottom_exposure_time`, `light_off_time` (seconds), and `bottom_layers` (integer). The normalized fields stay attached to the task in `PrinterRealtimeStore`, including when a later update omits them. The desktop bridge exposes them only for the selected printer's current MQTT task. Missing/invalid values do not reset previously valid settings on that same task; a new task starts without inherited settings. No raw payload is passed to QML and existing broker/TLS/topic configuration remains unchanged.

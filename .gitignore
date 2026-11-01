@@ -33,7 +33,12 @@ accloud/ui.zip
 **/__pycache__/**
 pwsz/
 benchmarks/
-packaging/
+packaging/*
+!packaging/arch/
+packaging/arch/*
+!packaging/arch/PKGBUILD
+!packaging/arch/acm.png
+!packaging/arch/README.md
 
 # Drive + Codex workflow
 REPO_INDEX.json

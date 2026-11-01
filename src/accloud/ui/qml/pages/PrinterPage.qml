@@ -52,6 +52,7 @@ Item {
     property bool directPrintDeleteLocalOnFailureSnapshot: false
     property string pendingDirectUploadContext: ""
     property bool remotePrintAllowed: true
+    property bool remotePrintSafetyBlocked: false
     property string remotePrintBlockReason: ""
     property bool remotePrintPreparing: false
     property bool remotePrintSubmitting: false
@@ -65,6 +66,10 @@ Item {
     property var pendingPrintFileData: null
     property var selectedPrinterDetails: ({})
     property var liveProjectData: ({})
+    // Derived only from the cached cloud file whose stable ID matches the active job.
+    property var activeCloudFileMetadata: ({})
+    property string activeFileMetadataKey: ""
+    property string requestedFileMetadataKey: ""
     property var selectedPrinterLiveSnapshot: null
     property bool loadingPrinterDetails: false
     property bool loadingPrinterHistory: false
@@ -76,6 +81,16 @@ Item {
     property var printerHadActiveJobById: ({})
     property var pendingRemotePrintByPrinterId: ({})
     property bool pendingPrintDeleteAfterPrint: false
+    onRemotePrinterIdChanged: {
+        if (remotePrintConfigDialog.visible) refreshRemotePrintGuard()
+    }
+    onLiveProjectDataChanged: {
+        if (remotePrintConfigDialog.visible) refreshRemotePrintGuard()
+        Qt.callLater(root.refreshActiveCloudFileMetadata)
+    }
+    onPendingRemotePrintByPrinterIdChanged: {
+        if (remotePrintConfigDialog.visible) refreshRemotePrintGuard()
+    }
     property string lastJobsRefreshReason: ""
     property bool resinFeedActive: false
     property int resinFeedType: 0
@@ -98,9 +113,15 @@ Item {
     onSelectedPrinterIdChanged: {
         root.updatePrintersAutoRefreshInterval()
         root.refreshSelectedPrinterLiveSnapshot()
+        root.activeCloudFileMetadata = ({})
+        root.activeFileMetadataKey = ""
+        root.requestedFileMetadataKey = ""
+        Qt.callLater(root.refreshActiveCloudFileMetadata)
     }
     onPageActiveChanged: {
         root.updatePrintersAutoRefreshInterval()
+        if (root.pageActive)
+            Qt.callLater(root.refreshActiveCloudFileMetadata)
         if (root.pageActive && root.mqttRealtimeRefreshPending) {
             root.mqttRealtimeRefreshPending = false
             if (mqttRealtimeDebounceTimer.running)
@@ -112,6 +133,19 @@ Item {
 
     PrintersModel {
         id: printersModel
+    }
+
+    Connections {
+        target: printersModel
+        function onDataChanged() {
+            if (remotePrintConfigDialog.visible) root.refreshRemotePrintGuard()
+        }
+        function onModelReset() {
+            if (remotePrintConfigDialog.visible) root.refreshRemotePrintGuard()
+        }
+        function onRowsInserted() {
+            if (remotePrintConfigDialog.visible) root.refreshRemotePrintGuard()
+        }
     }
 
     PrintersModel {
@@ -303,8 +337,77 @@ Item {
         return false
     }
 
+    // A fleet tab describes its own printer, not the currently opened printer.
+    // The selected snapshot carries the freshest known project/telemetry overlay.
     function printerTabTitle(printer) {
-        return String(printer && printer.name !== undefined ? printer.name : "-")
+        var name = String(printer && printer.name !== undefined ? printer.name : "-")
+        if (!printer)
+            return name
+        var printerId = String(printer.id || "")
+        var observed = printerId.length > 0 && printerId === selectedPrinterId
+                && selectedPrinterLiveSnapshot
+                ? selectedPrinterLiveSnapshot : printer
+        var state = String(observed.state || "").toUpperCase().trim()
+        var available = Number(observed.available)
+        if (state === "OFFLINE" || (observed.available !== undefined
+                && observed.available !== null && isFinite(available) && available === 0))
+            return name + " · " + qsTr("Offline")
+        if (state === "ERROR")
+            return name + " · " + qsTr("Error")
+        if (observed.awaitingPrinterTelemetry === true)
+            return name + " · " + qsTr("Preparing")
+
+        var details = observed.details || ({})
+        var stage = String(observed.mqttJobStage || details.mqttJobStage || "").toLowerCase().trim()
+        var printState = String(observed.mqttPrintState || details.mqttPrintState || "").toLowerCase().trim()
+        // The row may lag behind a confirmed active project for another printer.
+        var activeProject = printerId === selectedPrinterId && liveProjectData
+                && Number(liveProjectData.printStatus) === 1 ? liveProjectData : null
+        if (!activeProject && observed.projects && observed.projects.length !== undefined) {
+            for (var i = 0; i < observed.projects.length; ++i) {
+                if (Number(observed.projects[i].printStatus) === 1) {
+                    activeProject = observed.projects[i]
+                    break
+                }
+            }
+        }
+        var printing = state === "PRINTING" || Number(observed.printStatus) === 1
+                || activeProject !== null
+                || printState === "printing" || printState === "paused"
+                || printState === "pausing" || printState === "resuming"
+                || printState === "resumed" || stage === "printing"
+        var preparing = state === "BUSY" || stage === "command_sent"
+                || stage === "downloading" || stage === "downloaded"
+                || stage === "loaded" || stage === "checking" || stage === "preheating"
+                || printState === "downloading" || printState === "monitoring"
+                || printState === "preheating" || printState === "waiting"
+
+        if (printing) {
+            var rawProgress = observed.progress
+            if (activeProject && activeProject.progress !== undefined
+                    && activeProject.progress !== null
+                    && Number(activeProject.progress) > 0
+                    && (rawProgress === undefined || rawProgress === null
+                        || Number(rawProgress) <= 0))
+                rawProgress = activeProject.progress
+            var progressKnown = rawProgress !== undefined && rawProgress !== null
+                    && String(rawProgress).trim().length > 0
+            var progress = progressKnown ? Number(rawProgress) : -1
+            var layer = Number(observed.currentLayer)
+            var started = (isFinite(layer) && layer > 0)
+                    || (isFinite(progress) && progress > 0)
+            // Never show a stale 0% as a real print while the first layer is pending.
+            if (preparing && !started)
+                return name + " · " + qsTr("Preparing")
+            if (started && isFinite(progress) && progress >= 0)
+                return name + " · " + qsTr("%1 %").arg(Math.max(0, Math.min(100, Math.round(progress))))
+            return name + " · " + (started ? qsTr("Printing") : qsTr("Preparing"))
+        }
+        if (preparing)
+            return name + " · " + qsTr("Preparing")
+        if (state === "READY" || state === "FREE" || state === "ONLINE")
+            return name + " · " + qsTr("Ready")
+        return name
     }
 
     function canStartFromPrinterState(printer) {
@@ -327,6 +430,8 @@ Item {
         if (key === "select_file") return qsTr("Select a cloud file first.")
         if (key === "printer_offline") return qsTr("Printer offline.")
         if (key === "printer_printing") return qsTr("Printer is currently printing.")
+        if (key === "printer_busy") return qsTr("Printer is preparing or processing an active task.")
+        if (key === "printer_pending") return qsTr("A print order is already pending for this printer.")
         if (key === "printer_error") return qsTr("Printer reported an error.")
         if (key === "unsupported_format") return qsTr("Unsupported file format.")
         if (key === "machine_type_mismatch") return qsTr("Slice file does not match machine type.")
@@ -340,8 +445,29 @@ Item {
         return translateLocalizedText(String(rawReason || ""))
     }
 
-    function evaluateRemotePrintGuard() {
+    function remotePrinterGuardSnapshot() {
         var printer = printerDataById(remotePrinterId)
+        if (!printer)
+            return null
+        // The list's READY state is insufficient: insights can already show a live task.
+        var snapshot = ({})
+        for (var key in printer)
+            snapshot[key] = printer[key]
+        snapshot.pendingPrintOrder = pendingRemotePrintForPrinter(remotePrinterId) !== null
+        if (String(remotePrinterId) === String(selectedPrinterId)) {
+            snapshot.activeProject = liveProjectData !== null
+                    && liveProjectData !== undefined
+                    && Number(liveProjectData.printStatus) === 1
+            if (selectedPrinterLiveSnapshot !== null
+                    && selectedPrinterLiveSnapshot !== undefined
+                    && String(selectedPrinterLiveSnapshot.state || "").toUpperCase() === "PRINTING")
+                snapshot.activeProject = true
+        }
+        return snapshot
+    }
+
+    function evaluateRemotePrintGuard() {
+        var printer = remotePrinterGuardSnapshot()
         var fileData = selectedCloudFileData()
         if (hasRemotePrintWorkflowBridge()) {
             return printWorkflowBridge.evaluateRemotePrintGuard(remotePrintMode,
@@ -358,8 +484,10 @@ Item {
 
     function refreshRemotePrintGuard() {
         var result = evaluateRemotePrintGuard()
-        remotePrintAllowed = (result.ok === true)
-        remotePrintBlockReason = remotePrintReasonText(result.reasonKey, result.reason)
+        // Never promote a server-incompatible preparation to allowed by refreshing live state.
+        remotePrintSafetyBlocked = (result.ok !== true)
+        if (remotePrintSafetyBlocked)
+            remotePrintBlockReason = remotePrintReasonText(result.reasonKey, result.reason)
     }
 
     function selectedPrinterData() {
@@ -473,6 +601,75 @@ Item {
         return null
     }
 
+    // Cache-only lookup: no cloud traffic and no heuristic match by file name.
+    // The normalized cloud file list may not contain the current print: show N/A
+    // rather than borrowing metadata from an unrelated job.
+    function activeFileMetadataIdentity() {
+        var job = root.liveProjectData || ({})
+        if (Number(job.printStatus) !== 1 || !root.selectedPrinterId)
+            return ""
+        var jobPrinterId = String(job.printerId || "").trim()
+        if (jobPrinterId && jobPrinterId !== String(root.selectedPrinterId))
+            return ""
+        var fileId = String(job.cloudFileId || job.fileId || "").trim()
+        var gcodeId = String(job.gcodeId || "").trim()
+        if (!fileId && !gcodeId)
+            return ""
+        return String(root.selectedPrinterId) + "|" + String(job.taskId || "")
+                + "|" + fileId + "|" + gcodeId
+    }
+
+    function matchingActiveCloudFile(files) {
+        var job = root.liveProjectData || ({})
+        var fileId = String(job.cloudFileId || job.fileId || "").trim()
+        var gcodeId = String(job.gcodeId || "").trim()
+        if (!fileId && !gcodeId)
+            return null
+        var list = files || []
+        for (var i = 0; i < list.length; ++i) {
+            var entry = list[i] || ({})
+            var entryId = String(entry.fileId || entry.id || "").trim()
+            var entryGcode = String(entry.gcodeId || "").trim()
+            if ((fileId && entryId && fileId === entryId)
+                    || (gcodeId && entryGcode && gcodeId === entryGcode))
+                return entry
+        }
+        return null
+    }
+
+    function acceptActiveCloudFileMetadata(files) {
+        var key = activeFileMetadataIdentity()
+        if (!key)
+            return
+        var found = matchingActiveCloudFile(files)
+        if (found) {
+            root.activeCloudFileMetadata = found
+            root.activeFileMetadataKey = key
+        }
+    }
+
+    function refreshActiveCloudFileMetadata() {
+        var key = activeFileMetadataIdentity()
+        if (key !== root.activeFileMetadataKey) {
+            root.activeCloudFileMetadata = ({})
+            root.activeFileMetadataKey = key
+        }
+        if (!key || !root.pageActive)
+            return
+        // Reuse the already-loaded print picker, without requesting cloud listing.
+        var available = []
+        for (var i = 0; i < printCloudFilesModel.count; ++i)
+            available.push(printCloudFilesModel.get(i))
+        acceptActiveCloudFileMetadata(available)
+        if (Object.keys(root.activeCloudFileMetadata).length > 0
+                || root.requestedFileMetadataKey === key)
+            return
+        root.requestedFileMetadataKey = key
+        if (typeof cloudBridge !== "undefined" && cloudBridge !== null
+                && typeof cloudBridge.loadCachedFilesAsync === "function")
+            cloudBridge.loadCachedFilesAsync(1, 200)
+    }
+
     function activeProjectFromHistory() {
         for (var i = 0; i < printerHistoryModel.count; ++i) {
             var item = printerHistoryModel.get(i)
@@ -538,6 +735,19 @@ Item {
             merged[key] = selected[key]
 
         var selectedId = String(selected.id || selectedPrinterId || "")
+        // The bridge exposes normalized parameters for this printer's current MQTT task.
+        // Neither raw MQTT JSON nor cloud filename matching is required in QML.
+        if (typeof mqttBridge !== "undefined" && mqttBridge !== null
+                && typeof mqttBridge.activePrintFileParameters === "function") {
+            var mqttParams = mqttBridge.activePrintFileParameters(
+                        selectedId, String(selected.printerKey || ""))
+            var activeCloudTaskId = liveProjectData && Number(liveProjectData.printStatus) === 1
+                    ? String(liveProjectData.taskId || "").trim() : ""
+            var mqttTaskId = String(mqttParams && mqttParams.taskId || "").trim()
+            if (mqttParams && mqttTaskId.length > 0
+                    && (activeCloudTaskId.length === 0 || activeCloudTaskId === mqttTaskId))
+                merged.mqttPrintParameters = mqttParams
+        }
         var pendingPrint = pendingRemotePrintForPrinter(selectedId)
         var selectedState = String(selected.state || "").toUpperCase()
         var activeCloudProject = liveProjectData && Number(liveProjectData.printStatus) === 1
@@ -1264,6 +1474,7 @@ Item {
         remotePrintBlockReason = remotePrintReasonText(preparation.blockReasonKey, preparation.blockReason)
         remotePrintPreparing = false
         remotePrintPrepareMessage = ""
+        refreshRemotePrintGuard()
 
         if (preparation.bestEffortWarning === true && targetPrinterId.length > 0) {
             statusMsg = qsTr("Compatibility check failed. Continuing with best-effort printer selection.")
@@ -2096,7 +2307,7 @@ Item {
             return
         }
         refreshRemotePrintGuard()
-        if (!remotePrintAllowed) {
+        if (!remotePrintAllowed || remotePrintSafetyBlocked) {
             statusMsg = remotePrintBlockReason.length > 0
                     ? qsTr("Print blocked: %1").arg(remotePrintBlockReason)
                     : qsTr("Print blocked by compatibility checks.")
@@ -2215,6 +2426,8 @@ Item {
         }
 
         function onCachedFilesLoaded(result) {
+            if (result && result.ok === true)
+                root.acceptActiveCloudFileMetadata(result.files || [])
             if (!root.cloudFilesLoading || String(root.pendingCloudFilesPrinterId || "").length <= 0)
                 return
 
@@ -2233,6 +2446,7 @@ Item {
         }
 
         function onFilesUpdatedFromCloud(files, message) {
+            root.acceptActiveCloudFileMetadata(files || [])
             if (!root.cloudFilesLoading || String(root.pendingCloudFilesPrinterId || "").length <= 0)
                 return
             root.applyCloudFilesForRemotePrint(files !== undefined ? files : [], false)
@@ -2586,9 +2800,10 @@ Item {
         selectedPrintTime: selectedCloudFileData() ? String(selectedCloudFileData().printTime || "-") : "-"
         selectedResinUsage: selectedCloudFileData() ? String(selectedCloudFileData().resinUsage || "-") : "-"
         remotePrintPreparing: root.remotePrintPreparing
+        remotePrintSubmitting: root.remotePrintSubmitting
         remotePrintPrepareMessage: root.remotePrintPrepareMessage
         optionDeleteAfterPrint: root.optionDeleteAfterPrint
-        remotePrintAllowed: root.remotePrintAllowed
+        remotePrintAllowed: root.remotePrintAllowed && !root.remotePrintSafetyBlocked
         remotePrintBlockReason: root.remotePrintBlockReason
         translateLocalizedTextProvider: root.translateLocalizedText
         onRemotePrinterChanged: function(printerId) {
@@ -2620,6 +2835,7 @@ Item {
         selectedPrinter: root.selectedPrinterLiveSnapshot
         selectedPrinterDetails: root.selectedPrinterDetails
         selectedLiveJobData: root.liveProjectData
+        selectedFileMetadata: root.activeCloudFileMetadata
         feedingOperationActive: root.resinFeedActive
         feedingOperationType: root.resinFeedType
         feedingStopInProgress: root.resinFeedStopSubmitting

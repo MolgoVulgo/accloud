@@ -27,6 +27,7 @@ AppDialogFrame {
     property bool remotePrintAllowed: true
     property string remotePrintBlockReason: ""
     property bool remotePrintPreparing: false
+    property bool remotePrintSubmitting: false
     property string remotePrintPrepareMessage: ""
     property var translateLocalizedTextProvider: null
 
@@ -281,15 +282,6 @@ AppDialogFrame {
                 }
             }
 
-            Text {
-                Layout.fillWidth: true
-                text: root.remotePrintPreparing
-                      ? qsTr("Checking printer compatibility...")
-                      : root.printerDisplayText()
-                color: Theme.fgSecondary
-                font.pixelSize: Theme.fontCaptionPx
-                elide: Text.ElideRight
-            }
         }
     }
 
@@ -379,6 +371,7 @@ AppDialogFrame {
             text: root.directPrintMode ? qsTr("Upload and print") : qsTr("Start Printing")
             variant: "primary"
             enabled: !root.remotePrintPreparing
+                     && !root.remotePrintSubmitting
                      && root.selectedCloudFileId.length > 0
                      && root.remotePrinterId.length > 0
                      && root.remotePrintAllowed

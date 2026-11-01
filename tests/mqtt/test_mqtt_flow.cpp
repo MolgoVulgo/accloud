@@ -60,6 +60,67 @@ bool test_route_extracts_realtime_fields() {
         && expect(event.reason.has_value() && *event.reason == "ok", "reason should be parsed");
 }
 
+bool test_mqtt_print_file_parameters_are_preserved_per_task() {
+    accloud::mqtt::routing::MqttMessageRouter router;
+    auto& store = accloud::realtime::PrinterRealtimeStore::instance();
+    store.clear();
+    const std::string topic =
+        "anycubic/anycubicCloud/v1/printer/app/m7/machine-print-01/print/report";
+    const auto start = router.route(topic, R"json(
+{"type":"print","action":"start","state":"printing","data":{
+  "taskid":"task-A","curr_layer":12,"total_layers":4040,
+  "supplies_usage":128.999,"z_thick":"0.050",
+  "settings":{"normal_exposure_time":1.8,"bottom_exposure_time":"30.000",
+              "light_off_time":0.5,"bottom_layers":5}}}
+)json");
+    if (!expect(start.event.has_value(), "print/start settings must be parsed")) return false;
+    const auto& e = *start.event;
+    const bool parsed = expect(e.resinUsage.has_value() && *e.resinUsage == 128.999, "resin usage parsed")
+        && expect(e.layerThickness.has_value() && *e.layerThickness == 0.05, "layer thickness parsed")
+        && expect(e.normalExposureTime.has_value() && *e.normalExposureTime == 1.8, "normal exposure parsed")
+        && expect(e.bottomExposureTime.has_value() && *e.bottomExposureTime == 30.0, "bottom exposure parsed")
+        && expect(e.lightOffTime.has_value() && *e.lightOffTime == 0.5, "off time parsed")
+        && expect(e.bottomLayers.has_value() && *e.bottomLayers == 5, "bottom layers parsed");
+    store.applyEvent(e);
+    const auto update = router.route(topic, R"json(
+{"type":"print","action":"start","state":"printing","data":{
+  "taskid":"task-A","curr_layer":26,"progress":3}}
+)json");
+    if (!expect(update.event.has_value(), "later partial telemetry parsed")) return false;
+    store.applyEvent(*update.event);
+    const auto snapshot = store.get("machine-print-01");
+    if (!expect(snapshot.has_value() && snapshot->activeTaskId.has_value(), "active job retained")) return false;
+    const auto job = snapshot->jobs.at("task-A");
+    const bool retained = expect(job.resinUsage.has_value() && *job.resinUsage == 128.999, "resin retained")
+        && expect(job.bottomExposureTime.has_value() && *job.bottomExposureTime == 30.0, "exposure retained")
+        && expect(job.bottomLayers.has_value() && *job.bottomLayers == 5, "bottom layers retained");
+    const auto next = router.route(topic, R"json(
+{"type":"print","action":"start","state":"printing","data":{
+  "taskid":"task-B","curr_layer":1,"total_layers":100}}
+)json");
+    if (!expect(next.event.has_value(), "second task parsed")) return false;
+    store.applyEvent(*next.event);
+    const auto fresh = store.get("machine-print-01");
+    const bool isolated = expect(fresh.has_value() && fresh->activeTaskId == "task-B", "new task active")
+        && expect(!fresh->jobs.at("task-B").resinUsage.has_value(), "old resin not inherited")
+        && expect(!fresh->jobs.at("task-B").bottomExposureTime.has_value(), "old exposure not inherited");
+    const auto invalid = router.route(topic, R"json(
+{"type":"print","action":"start","state":"printing","data":{
+  "taskid":"task-C","supplies_usage":"-2","z_thick":"oops",
+  "settings":{"normal_exposure_time":"NaN","bottom_exposure_time":-30,
+              "light_off_time":"1oops","bottom_layers":-5}}}
+)json");
+    const bool rejects = expect(invalid.event.has_value(), "invalid payload still routed")
+        && expect(!invalid.event->resinUsage.has_value(), "negative resin ignored")
+        && expect(!invalid.event->layerThickness.has_value(), "malformed thickness ignored")
+        && expect(!invalid.event->normalExposureTime.has_value(), "NaN ignored")
+        && expect(!invalid.event->bottomExposureTime.has_value(), "negative exposure ignored")
+        && expect(!invalid.event->lightOffTime.has_value(), "trailing text ignored")
+        && expect(!invalid.event->bottomLayers.has_value(), "negative count ignored");
+    store.clear();
+    return parsed && retained && isolated && rejects;
+}
+
 bool test_store_applies_metrics() {
     auto& store = accloud::realtime::PrinterRealtimeStore::instance();
     store.clear();
@@ -1136,6 +1197,7 @@ bool test_telemetry_observation_store_tracks_unknown_signatures() {
 int main() {
     bool ok = true;
     ok = test_route_extracts_realtime_fields() && ok;
+    ok = test_mqtt_print_file_parameters_are_preserved_per_task() && ok;
     ok = test_store_applies_metrics() && ok;
     ok = test_router_routes_release_film_status() && ok;
     ok = test_router_accepts_documented_local_file_list_payload() && ok;

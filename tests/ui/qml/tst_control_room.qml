@@ -155,6 +155,7 @@ TestCase {
                                       '}' +
                                       'function evaluateRemotePrintGuard(mode, printer, fileData) {' +
                                       '  guardCalls += 1;' +
+                                      '  if (printer && (printer.activeProject === true || printer.pendingPrintOrder === true)) return { ok: false, reasonKey: "printer_busy", reason: "Printer is preparing or processing an active task." };' +
                                       '  if (!printer || String(printer.id || "").length === 0) return { ok: false, reasonKey: "select_printer", reason: "Select a printer first." };' +
                                       '  if (String(mode) !== "direct" && (!fileData || Object.keys(fileData).length === 0)) return { ok: false, reasonKey: "select_file", reason: "Select a cloud file first." };' +
                                       '  return { ok: true, reasonKey: "", reason: "" };' +
@@ -834,6 +835,7 @@ TestCase {
 
     function test_printer_details_basic_waiting_metrics() {
         var history = {
+            lastCompletedFile: "done.pwmb",
             count: 2,
             get: function(index) {
                 if (index === 0) {
@@ -917,6 +919,49 @@ TestCase {
         panel.destroy()
     }
 
+    function test_printer_last_completed_file_tracks_cloud_history_without_row_count_change() {
+        var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml", {
+            "width": 1280, "height": 800,
+            "deferStartupInitialization": true,
+            "pageActive": false
+        })
+        var jobs = findObjectByName(page, "printerHistoryModel")
+        var lastPrinted = findObjectByName(page, "printerLastPrintedFileValue")
+        verify(jobs !== null)
+        verify(lastPrinted !== null)
+        compare(String(lastPrinted.text), "-")
+
+        var completed = { taskId: "done-1", printerId: "p1", gcodeName: "first.pwsz",
+                          printStatus: 2, createTime: 100, endTime: 150 }
+        var newer = { taskId: "done-2", printerId: "p1", gcodeName: "second.pwsz",
+                      printStatus: 2, createTime: 110, endTime: 180 }
+        var failed = { taskId: "failed-3", printerId: "p1", gcodeName: "failed.pwsz",
+                       printStatus: 3, createTime: 200, endTime: 250 }
+        jobs.replaceOrPatchJobs([failed, completed, newer])
+        tryCompare(lastPrinted, "text", "second.pwsz")
+
+        // The model emits dataChanged, not countChanged: the label must react.
+        newer.gcodeName = "updated.pwsz"
+        jobs.replaceOrPatchJobs([failed, completed, newer])
+        tryCompare(lastPrinted, "text", "updated.pwsz")
+        completed.endTime = 300
+        jobs.replaceOrPatchJobs([failed, completed, newer])
+        tryCompare(lastPrinted, "text", "first.pwsz")
+
+        // Printer change must not retain the previous printer's last file.
+        jobs.clear()
+        tryCompare(lastPrinted, "text", "-")
+        jobs.replaceOrPatchJobs([{ taskId: "done-p2", printerId: "p2",
+                                   gcodeName: "other.pwsz", printStatus: 2,
+                                   createTime: 400, endTime: 450 }])
+        tryCompare(lastPrinted, "text", "other.pwsz")
+        jobs.replaceOrPatchJobs([{ taskId: "done-p2", printerId: "p2",
+                                   gcodeName: "other.pwsz", printStatus: 3,
+                                   createTime: 400, endTime: 450 }])
+        tryCompare(lastPrinted, "text", "-")
+        page.destroy()
+    }
+
     function test_printer_functions_card_visibility_and_feeding_modal_ui() {
         var panel = createQmlObject("../../../ui/qml/pages/PrinterDetailPanel.qml", {
             "width": 980,
@@ -958,17 +1003,31 @@ TestCase {
         compare(basicFunctionsCard.visible, true)
         compare(printingFunctionsCard.visible, false)
 
+        // PRINTING without a first layer remains preparation; no premature
+        // hiding of the resin controls before confirmed print progress.
+        panel.selectedPrinter = {
+            "id": "p1", "name": "Anycubic Photon Mono M7 Pro",
+            "state": "PRINTING", "available": 1,
+            "progress": 0, "currentLayer": 0,
+            "details": { "mqttJobStage": "preheating", "mqttPrintState": "preheating" }
+        }
+        wait(0)
+        compare(String(panel.printerInfoMode()), "preparing")
+        compare(basicFunctionsCard.visible, false)
+        compare(printingFunctionsCard.visible, true)
+
         panel.selectedPrinter = {
             "id": "p1",
             "name": "Anycubic Photon Mono M7 Pro",
             "state": "PRINTING",
             "reason": "printing",
             "available": 1,
-            "progress": 42
+            "progress": 42,
+            "currentLayer": 1697
         }
         wait(0)
         compare(basicFunctionsCard.visible, false)
-        compare(printingFunctionsCard.visible, true)
+        compare(printingFunctionsCard.visible, false)
         compare(String(findObjectByName(panel, "printerFunctionFeedingButton").text), "Feeding")
         compare(findObjectByName(panel, "printerFunctionB1Button"), null)
         compare(findObjectByName(panel, "printerFunctionB2Button"), null)
@@ -2156,7 +2215,9 @@ TestCase {
 
         page.startRemotePrint()
         compare(sendCalls, 0)
-        compare(page.remotePrintAllowed, false)
+        // Compatibility approval and the live-state safety veto are independent.
+        compare(page.remotePrintAllowed, true)
+        compare(page.remotePrintSafetyBlocked, true)
         compare(String(page.remotePrintBlockReason), "Select a cloud file first.")
         page.destroy()
         cloudBridge = undefined
@@ -2164,6 +2225,7 @@ TestCase {
 
     function test_printer_page_open_remote_print_from_file_prefers_compatible_printer() {
         var printerProjectsCalls = 0
+        var sendCalls = 0
         cloudBridge = {
             fetchPrinters: function() {
                 return {
@@ -2181,7 +2243,7 @@ TestCase {
             fetchReasonCatalog: function() { return { ok: true, reasons: [] } },
             fetchPrinterDetails: function() { return { ok: true, details: {} } },
             fetchPrinterProjects: function() { printerProjectsCalls += 1; return { ok: true, projects: [] } },
-            sendPrintOrder: function() { return { ok: true, taskId: "123" } }
+            sendPrintOrder: function() { sendCalls += 1; return { ok: true, taskId: "123" } }
         }
         printWorkflowBridge = createRemotePrintWorkflowMock({
             requestId: "workflow-request-1",
@@ -2233,6 +2295,23 @@ TestCase {
         compare(printWorkflowBridge.beginCalls, 1)
         compare(String(page.remotePrinterId), "p2")
         compare(String(printerCombo.displayText), "Printer Two")
+        var startButton = findObjectByName(dialog, "remotePrintStartButton")
+        verify(startButton !== null)
+        compare(startButton.enabled, true)
+        // Printer insights can be ahead of the raw READY row: do not issue a second print.
+        page.liveProjectData = {printStatus: 1, taskId: "active-task"}
+        compare(page.remotePrintSafetyBlocked, true)
+        compare(startButton.enabled, false)
+        page.startRemotePrint()
+        compare(sendCalls, 0)
+        // An attempted forbidden print changes the status from "prepared" to "blocked".
+        verify(String(page.statusMsg).indexOf("Print blocked:") === 0)
+        page.liveProjectData = ({})
+        compare(page.remotePrintSafetyBlocked, false)
+        compare(startButton.enabled, true)
+        page.remotePrintSubmitting = true
+        compare(startButton.enabled, false)
+        page.remotePrintSubmitting = false
         var compatiblePrinterModel = printerCombo.model
         verify(compatiblePrinterModel !== null)
         tryCompare(compatiblePrinterModel, "count", 1, 1000)
@@ -2245,7 +2324,8 @@ TestCase {
         verify(selectedFile !== null)
         compare(String(selectedFile.printTime), "01h 10m")
         compare(String(selectedFile.resinUsage), "24 ml")
-        verify(String(page.statusMsg).indexOf("Remote print prepared for") === 0)
+        compare(page.remotePrintSafetyBlocked, false)
+        compare(page.remotePrintAllowed, true)
         page.remotePrintMode = "direct"
         tryCompare(dialog, "directPrintMode", true, 1000)
         tryCompare(optionsCard, "visible", true, 1000)
@@ -2308,6 +2388,224 @@ TestCase {
         page.destroy()
     }
 
+    function test_printer_preparation_switches_to_print_tracking_only_on_real_progress() {
+        var printer = { id: "p-phase", name: "Mono M7 Pro", state: "PRINTING",
+                        available: 1, progress: 0, currentLayer: 0, totalLayers: 4040,
+                        currentFile: "job.pwsz",
+                        details: { mqttJobStage: "checking", mqttPrintState: "monitoring",
+                                   mqttActiveTaskId: "task-phase" } }
+        var panel = createQmlObject("../../../ui/qml/pages/PrinterDetailPanel.qml", {
+            "width": 980, "height": 650, "selectedPrinter": printer
+        })
+        var preparation = findObjectByName(panel, "printerPreparationPanel")
+        var activePrint = findObjectByName(panel, "printerActivePrintPanel")
+        verify(preparation !== null)
+        verify(activePrint !== null)
+        compare(String(panel.printerInfoMode()), "preparing")
+        compare(preparation.visible, true)
+        compare(activePrint.visible, false)
+        compare(panel.workflowStatusRows().length, 5)
+        compare(String(panel.workflowStatusRows()[4].label), "Start")
+        compare(String(panel.workflowStatusRows()[4].value), "Waiting for the first layer")
+
+        // The backend may still report PRINTING during preheating; no layer yet.
+        panel.selectedPrinter = { id: "p-phase", state: "PRINTING", available: 1,
+                                  progress: 0, currentLayer: 0, totalLayers: 4040,
+                                  details: { mqttJobStage: "preheating", mqttPrintState: "preheating" } }
+        compare(String(panel.printerInfoMode()), "preparing")
+        compare(preparation.visible, true)
+
+        panel.selectedPrinter = { id: "p-phase", state: "PRINTING", available: 1,
+                                  currentFile: "job.pwsz", progress: 1,
+                                  currentLayer: 41, totalLayers: 4040,
+                                  elapsedSec: 720, remainingSec: 20760,
+                                  details: { mqttJobStage: "printing", mqttPrintState: "printing" } }
+        compare(String(panel.printerInfoMode()), "printing")
+        compare(preparation.visible, false)
+        compare(activePrint.visible, true)
+        var bar = findObjectByName(panel, "printerCurrentPrintProgressBar")
+        verify(bar !== null)
+        verify(Math.abs(Number(bar.value) - 0.01) < 0.001)
+        verify(visibleTextExists(panel, "41 / 4040 layers"))
+        verify(!visibleTextExists(panel, "Waiting for the first layer"))
+
+        // Completed jobs must restore device details without stale workflow stages.
+        panel.selectedPrinter = { id: "p-phase", state: "READY", available: 1,
+                                  progress: -1, currentLayer: -1, totalLayers: -1,
+                                  details: { mqttJobStage: "finished", mqttPrintState: "finished" } }
+        compare(String(panel.printerInfoMode()), "basic")
+        compare(preparation.visible, false)
+        compare(activePrint.visible, false)
+        panel.destroy()
+    }
+
+    function test_printer_active_file_parameters_display_and_phase_reset() {
+        var panel = createQmlObject("../../../ui/qml/pages/PrinterDetailPanel.qml", {
+            "width": 820, "height": 680,
+            "selectedPrinter": {
+                "id": "p-metadata", "state": "PRINTING", "available": 1,
+                "progress": 54, "currentLayer": 2194, "totalLayers": 4040
+            },
+            "selectedLiveJobData": { "printStatus": 1, "taskId": "t-1" },
+            "selectedFileMetadata": {
+                "resinUsage": "128.999 ml", "printTime": "6 h 12 min",
+                "layerThickness": "0.050 mm", "layers": "4040",
+                "exposureTime": "1.800 s", "offTime": "0.500 s",
+                "bottomLayers": "5"
+            }
+        })
+        var card = findObjectByName(panel, "printerActiveFileMetadataCard")
+        verify(card !== null)
+        compare(card.visible, true)
+        compare(panel.fileMetadataRows(0).length, 4)
+        compare(panel.fileMetadataRows(1).length, 4)
+        compare(panel.fileMetadataValue("resin"), "128.999 ml")
+        compare(panel.fileMetadataValue("duration"), "6 h 12 min")
+        compare(panel.fileMetadataValue("thickness"), "0.050 mm")
+        compare(panel.fileMetadataValue("layers"), "4040")
+        compare(panel.fileMetadataValue("exposure"), "1.800 s")
+        compare(panel.fileMetadataValue("bottomExposure"), "N/A")
+        compare(panel.fileMetadataValue("offTime"), "0.500 s")
+        compare(panel.fileMetadataValue("bottomLayers"), "5")
+        verify(visibleTextExists(panel, "Estimated resin"))
+        verify(visibleTextExists(panel, "128.999 ml"))
+
+        // Missing metadata is not silently replaced by an unrelated file.
+        panel.selectedFileMetadata = ({})
+        panel.selectedLiveJobData = ({ "printStatus": 1, "taskId": "t-2" })
+        compare(panel.fileMetadataValue("resin"), "N/A")
+        compare(panel.fileMetadataValue("duration"), "N/A")
+        compare(panel.fileMetadataValue("layers"), "4040") // live telemetry
+
+        // HTTP acceptance / preheat is not confirmed printing.
+        panel.selectedPrinter = {
+            "id": "p-metadata", "state": "PRINTING", "available": 1,
+            "progress": 0, "currentLayer": 0,
+            "details": { "mqttJobStage": "preheating", "mqttPrintState": "preheating" }
+        }
+        compare(String(panel.printerInfoMode()), "preparing")
+        compare(card.visible, false)
+        panel.selectedPrinter = { "id": "p-metadata", "state": "READY", "available": 1 }
+        compare(card.visible, false)
+        panel.destroy()
+    }
+
+    function test_printer_active_file_mqtt_metadata_precedence_and_reset() {
+        var panel = createQmlObject("../../../ui/qml/pages/PrinterDetailPanel.qml", {
+            "width": 820, "height": 680,
+            "selectedPrinter": {
+                "id": "p-mqtt", "state": "PRINTING", "progress": 54,
+                "currentLayer": 2194, "totalLayers": 4040,
+                "mqttPrintParameters": {
+                    "taskId": "task-A", "resinUsage": 128.999,
+                    "layerThickness": 0.05, "exposureTime": 1.8,
+                    "bottomExposureTime": 30, "offTime": 0.5,
+                    "bottomLayers": 5
+                }
+            },
+            "selectedFileMetadata": { "resinUsage": "999 ml", "exposureTime": "9 s" }
+        })
+        compare(panel.fileMetadataValue("resin"), "128.999 ml")
+        compare(panel.fileMetadataValue("thickness"), "0.050 mm")
+        compare(panel.fileMetadataValue("exposure"), "1.800 s")
+        compare(panel.fileMetadataValue("bottomExposure"), "30.000 s")
+        compare(panel.fileMetadataValue("offTime"), "0.500 s")
+        compare(panel.fileMetadataValue("bottomLayers"), "5")
+        compare(panel.fileMetadataValue("layers"), "4040")
+        // A new task with no MQTT metadata cannot inherit previous values.
+        panel.selectedPrinter = { "id": "p-mqtt", "state": "PRINTING",
+                                  "progress": 2, "currentLayer": 2, "totalLayers": 100 }
+        panel.selectedFileMetadata = ({})
+        compare(panel.fileMetadataValue("resin"), "N/A")
+        compare(panel.fileMetadataValue("bottomExposure"), "N/A")
+        compare(panel.fileMetadataValue("layers"), "100")
+        panel.destroy()
+    }
+
+    function test_printer_active_file_cache_matching_never_uses_filename() {
+        var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml", {
+            "width": 1100, "height": 760,
+            "deferStartupInitialization": true,
+            "pageActive": false,
+            "selectedPrinterId": "p1"
+        })
+        page.liveProjectData = {
+            "printStatus": 1, "taskId": "task-1", "cloudFileId": "file-42",
+            "gcodeId": "gcode-42", "gcodeName": "identical.pwsz"
+        }
+        wait(0)
+        page.acceptActiveCloudFileMetadata([
+            { "fileId": "file-other", "gcodeId": "gcode-other",
+              "fileName": "identical.pwsz", "resinUsage": "BAD" },
+            { "fileId": "file-42", "gcodeId": "gcode-42",
+              "fileName": "another.pwsz", "resinUsage": "42 ml" }
+        ])
+        compare(String(page.activeCloudFileMetadata.resinUsage), "42 ml")
+        page.liveProjectData = {
+            "printStatus": 1, "taskId": "task-2", "cloudFileId": "missing"
+        }
+        wait(0)
+        compare(Object.keys(page.activeCloudFileMetadata).length, 0)
+        page.acceptActiveCloudFileMetadata([
+            { "fileId": "file-other", "fileName": "identical.pwsz", "resinUsage": "BAD" }
+        ])
+        compare(Object.keys(page.activeCloudFileMetadata).length, 0)
+        page.destroy()
+    }
+
+    function test_printer_compact_header_contains_selected_name_controls_and_status() {
+        var fleet = Qt.createQmlObject('import QtQuick 2.15; ListModel {}', this, "compactHeaderFleet")
+        fleet.append({ id: "p1", name: "Mono M7 Pro", state: "READY", available: 1 })
+        var panel = createQmlObject("../../../ui/qml/pages/PrinterMainPanel.qml", {
+            "width": 1120, "height": 720, "printersModel": fleet,
+            "selectedPrinterId": "p1", "selectedPrinter": fleet.get(0)
+        })
+        var header = findObjectByName(panel, "printerCompactHeader")
+        var tab = findObjectByName(panel, "printerTabButton")
+        var button = findObjectByName(panel, "printerTopLocalFilesButton")
+        var status = findObjectByName(panel, "printerTopStatusChip")
+        var legacyHeader = findObjectByName(panel, "printerDetailHeader")
+        verify(header !== null && tab !== null && button !== null && status !== null)
+        verify(legacyHeader !== null)
+        compare(legacyHeader.visible, false)
+        compare(button.visible, true)
+        compare(status.visible, true)
+        verify(String(tab.text).indexOf("Mono M7 Pro") >= 0)
+        verify(button.x > tab.x)
+        compare(Math.round(header.height), 42)
+        var selected = ""
+        panel.localFileRequested.connect(function(id) { selected = id })
+        button.clicked()
+        compare(selected, "p1")
+        panel.localFilePrintEnabled = false
+        compare(button.enabled, false)
+        selected = ""
+        button.clicked()
+        compare(selected, "")
+
+        // During real print tracking, redundant header controls disappear.
+        panel.selectedPrinter = { id: "p1", name: "Mono M7 Pro", state: "PRINTING",
+                                  available: 1, progress: 13, currentLayer: 542,
+                                  totalLayers: 4040, details: { mqttJobStage: "printing",
+                                                                mqttPrintState: "printing" } }
+        compare(panel.activePrintVisible, true)
+        compare(button.visible, false)
+        compare(status.visible, false)
+        compare(findObjectByName(panel, "printerFunctionsCard").visible, false)
+        // The tab strip and the three sides must not paint two top strokes.
+        var host = findObjectByName(panel, "printerCompactHeader")
+        verify(host !== null)
+        verify(findObjectByName(panel, "printerHeaderRightBaseline") !== null)
+        verify(findObjectByName(panel, "printerPanelLeftOutline") !== null)
+        verify(findObjectByName(panel, "printerPanelRightOutline") !== null)
+        verify(findObjectByName(panel, "printerPanelBottomOutline") !== null)
+        panel.selectedPrinter = fleet.get(0)
+        compare(button.visible, true)
+        compare(status.visible, true)
+        panel.destroy()
+        fleet.destroy()
+    }
+
     function test_printer_order_http_acceptance_is_not_mqtt_printing() {
         var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml",
                                    {"width": 1280, "height": 800,
@@ -2334,7 +2632,7 @@ TestCase {
                                      "selectedLiveJobData": page.liveProjectData})
         compare(String(panel.printerSemanticStatus()), "ORDER_PENDING")
         compare(String(panel.printerDisplayStatus()), "Awaiting printer telemetry")
-        compare(String(panel.printerInfoMode()), "basic")
+        compare(String(panel.printerInfoMode()), "preparing")
 
         // An offline/error report must not be masked by the accepted HTTP order.
         panel.selectedPrinter = { state: "OFFLINE", available: 0,
@@ -2548,58 +2846,94 @@ TestCase {
         mqttBridge = undefined
     }
 
-    function test_printer_tabs_title_contains_name_only() {
-        cloudBridge = {
-            fetchPrinters: function() {
-                return {
-                    ok: true,
-                    message: "ok",
-                    endpoint: "/mock/printers",
-                    rawJson: "{}",
-                    printers: [
-                        {
-                            id: "p1",
-                            name: "Printer One",
-                            model: "Mono M7",
-                            type: "LCD",
-                            state: "PRINTING",
-                            reason: "printing",
-                            available: 1,
-                            progress: 12,
-                            elapsedSec: 100,
-                            remainingSec: 200,
-                            currentFile: "demo.pwmb",
-                            lastSeen: "now"
-                        }
-                    ]
-                }
-            },
-            fetchFiles: function() { return { ok: true, files: [] } },
-            fetchCompatiblePrintersByExt: function() { return { ok: true, printers: [] } },
-            fetchCompatiblePrintersByFileId: function() { return { ok: true, printers: [] } },
-            fetchReasonCatalog: function() { return { ok: true, reasons: [] } },
-            fetchPrinterDetails: function() { return { ok: true, details: {} } },
-            fetchPrinterProjects: function() { return { ok: true, projects: [] } },
-            sendPrintOrder: function() { return { ok: true, taskId: "123" } }
-        }
-
-        var page = null
+    function test_printer_tab_full_title_and_attached_side_strokes() {
+        var fleet = Qt.createQmlObject('import QtQuick 2.15; ListModel {}', this,
+                                       "printerTabTitleWidthFleet")
+        fleet.append({ id: "p-long", name: "Anycubic Photon Mono M7 Pro", state: "PRINTING" })
+        var tabs = createQmlObject("../../../ui/qml/pages/PrintersTabsBar.qml", {
+            "width": 920, "height": 42,
+            "printersModel": fleet, "selectedPrinterId": "p-long",
+            "embeddedInTabsContainer": true,
+            "tabTitleProvider": function(printer) { return printer.name + " · 45 %" }
+        })
         try {
-            page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml", {"width": 1280, "height": 800})
-            var tabButton = findObjectByName(page, "printerTabButton")
-            verify(tabButton !== null)
-            verify(String(tabButton.text).indexOf("Printer One") !== -1)
-            verify(String(tabButton.text).indexOf("Printing") === -1)
+            var tab = findObjectByName(tabs, "printerTabButton")
+            verify(tab !== null)
+            wait(0)
+            compare(String(tab.text), "Anycubic Photon Mono M7 Pro · 45 %")
+            verify(tab.width >= tab.contentItem.implicitWidth
+                    + tab.leftPadding + tab.rightPadding,
+                    "The whole printer name and percent must fit without ellipsis")
+            compare(tab.contentItem.truncated, false)
+            compare(tab.verticalBorderBottomMargin, 0)
 
-            var headerStatusChip = findObjectByName(page, "printerHeaderStatusChip")
-            verify(headerStatusChip !== null)
-            compare(String(headerStatusChip.status), "Printing")
+            var fullWidth = tab.width
+            // The title must expand after a telemetry change, not keep a
+            // previously cached/shorter measurement.
+            tab.text = "Anycubic Photon Mono M7 Pro Extra Long · 100 %"
+            wait(0)
+            verify(tab.width > fullWidth)
+            compare(tab.contentItem.truncated, false)
         } finally {
-            if (page !== null) {
-                page.destroy()
-                wait(0)
-            }
-            cloudBridge = undefined
+            tabs.destroy()
+            fleet.destroy()
+        }
+    }
+
+    function test_printer_tabs_report_each_printer_state_and_print_percent_only() {
+        var page = createQmlObject("../../../ui/qml/pages/PrinterPage.qml", {
+            "width": 1280, "height": 800, "pageActive": false,
+            "deferStartupInitialization": true
+        })
+        try {
+            var ready = { id: "p1", name: "Printer One", state: "READY", available: 1,
+                          progress: -1, currentLayer: -1 }
+            var printing = { id: "p2", name: "Printer Two", state: "PRINTING", available: 1,
+                             progress: 13, currentLayer: 542, totalLayers: 4040,
+                             details: { mqttJobStage: "printing", mqttPrintState: "printing" } }
+            var offline = { id: "p3", name: "Printer Three", state: "OFFLINE", available: 0,
+                            progress: 89, currentLayer: 3000 }
+            page.replacePrintersModel([ready, printing, offline], false)
+            compare(String(page.selectedPrinterId), "p1")
+            compare(String(page.printerTabTitle(page.printerDataById("p1"))), "Printer One · Ready")
+            compare(String(page.printerTabTitle(page.printerDataById("p2"))), "Printer Two · 13 %")
+            compare(String(page.printerTabTitle(page.printerDataById("p3"))), "Printer Three · Offline")
+            var tab = findObjectByName(page, "printerTabButton")
+            verify(tab !== null)
+            compare(String(tab.text), "Printer One · Ready")
+            // Replacing a C++ model row must invalidate the visible tab label.
+            page.replacePrintersModel([
+                { id: "p1", name: "Printer One", state: "PRINTING", available: 1,
+                  progress: 7, currentLayer: 100 }, printing, offline
+            ], false)
+            tryCompare(tab, "text", "Printer One · 7 %")
+            page.replacePrintersModel([ready, printing, offline], false)
+            tryCompare(tab, "text", "Printer One · Ready")
+            page.choosePrinter("p2")
+            compare(String(page.printerTabTitle(page.printerDataById("p1"))), "Printer One · Ready")
+            compare(String(page.printerTabTitle(page.printerDataById("p2"))), "Printer Two · 13 %")
+            page.replacePrintersModel([
+                ready,
+                { id: "p2", name: "Printer Two", state: "PRINTING", available: 1,
+                  progress: 0, currentLayer: 0,
+                  details: { mqttJobStage: "preheating", mqttPrintState: "preheating" } },
+                offline
+            ], false)
+            compare(String(page.printerTabTitle(page.printerDataById("p2"))), "Printer Two · Preparing")
+            page.replacePrintersModel([
+                ready, { id: "p2", name: "Printer Two", state: "READY", available: 1,
+                         progress: -1, currentLayer: -1,
+                         details: { mqttJobStage: "finished", mqttPrintState: "finished" } },
+                offline
+            ], false)
+            compare(String(page.printerTabTitle(page.printerDataById("p2"))), "Printer Two · Ready")
+            page.replacePrintersModel([
+                ready, { id: "p2", name: "Printer Two", state: "ERROR", available: 1,
+                         progress: 75, currentLayer: 2500 }, offline
+            ], false)
+            compare(String(page.printerTabTitle(page.printerDataById("p2"))), "Printer Two · Error")
+        } finally {
+            page.destroy()
         }
     }
 
@@ -2911,9 +3245,10 @@ TestCase {
                                          'function fetchReasonCatalog() { return { ok: true, reasons: [] } }' +
                                          'function fetchPrinterDetails() { return { ok: true, details: {} } }' +
                                          'function fetchPrinterProjects() { return { ok: true, projects: [] } }' +
+                                         'property bool cachedProjectActive: true;' +
                                          'function loadCachedPrinterProjects(printerId) {' +
                                          '  if (String(printerId) !== "cached-p1") return { ok: true, projects: [] };' +
-                                         '  return { ok: true, projects: [ { taskId: "t-cache-1", gcodeName: "cached.pwmb", printerId: "cached-p1", printerName: "Cached Printer", printStatus: 1, progress: 20, reason: "", createTime: 1, endTime: 0, img: "" } ] };' +
+                                         '  return { ok: true, projects: [ { taskId: "t-cache-1", gcodeName: "cached.pwmb", printerId: "cached-p1", printerName: "Cached Printer", printStatus: cachedProjectActive ? 1 : 2, progress: cachedProjectActive ? 20 : 100, reason: "", createTime: 1, endTime: cachedProjectActive ? 0 : 3, img: "" } ] };' +
                                          '}' +
                                          'function loadCachedPrinters() {' +
                                          '  return { ok: true, endpoint: "/mock/printers", rawJson: "{}", printers: [' +
@@ -2988,11 +3323,16 @@ TestCase {
         compare(String(page.selectedPrinterDetails.materialUsed), "250 ml")
         compare(cloudBridge.insightRefreshCalls, insightCallsBeforePrinterRefresh)
 
+        // The printer has become idle; the cache must not keep returning the older active job.
+        cloudBridge.cachedProjectActive = false
         cloudBridge.printersUpdatedFromCloud([
             { id: "cached-p1", name: "Cached Printer", model: "Mono", type: "LCD", state: "READY", reason: "free", available: 1, progress: -1, elapsedSec: -1, remainingSec: -1, currentFile: "", lastSeen: "now", details: { firmwareVersion: "FW-CLOUD-2" }, projects: [] }
         ], "ok")
         wait(0)
-        compare(cloudBridge.insightRefreshCalls, insightCallsBeforePrinterRefresh + 1)
+        // This gate checks that a completed print triggers a refresh, not the total number
+        // of asynchronous insight notifications accumulated since startup.
+        verify(cloudBridge.insightRefreshCalls > insightCallsBeforePrinterRefresh)
+        var insightsAfterCompletion = cloudBridge.insightRefreshCalls
         compare(String(page.lastJobsRefreshReason), "print_finished")
         compare(cloudBridge.lastInsightForce, true)
 
@@ -3000,7 +3340,7 @@ TestCase {
             { id: "cached-p1", name: "Cached Printer", model: "Mono", type: "LCD", state: "READY", reason: "free", available: 1, progress: -1, elapsedSec: -1, remainingSec: -1, currentFile: "", lastSeen: "now", details: { firmwareVersion: "FW-CLOUD-2" }, projects: [] }
         ], "ok")
         wait(0)
-        compare(cloudBridge.insightRefreshCalls, insightCallsBeforePrinterRefresh + 1)
+        compare(cloudBridge.insightRefreshCalls, insightsAfterCompletion)
 
         var insightCallsBeforePrintStart = cloudBridge.insightRefreshCalls
         page.openRemotePrintFromFile("file-1", "file.pwmb")

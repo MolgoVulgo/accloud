@@ -1,59 +1,44 @@
 pkgname=anycubic-cloud-manager-v3
-pkgver=0.85
-pkgrel=2
-_tag="v0.85-1"
-pkgdesc="Anycubic Cloud Manager V3 (Qt6/QML)"
+pkgver=1.0.0rc2
+pkgrel=1
+_tag="1.0.0-RC.2"
+pkgdesc="accloud — independent resin-cloud manager (Qt6/QML)"
 arch=('x86_64')
-url="https://github.com/MolgoVulgo/anycubic-cloud-manager-v3/releases/latest"
+url="https://github.com/MolgoVulgo/accloud"
 license=('MIT')
-depends=(
-  'qt6-base'
-  'qt6-declarative'
-  'qt6-5compat'
-  'qt6-shadertools'
-  'qt6-quick3d'
-  'qt6-mqtt'
-  'openssl'
-)
-makedepends=(
-  'cmake'
-  'ninja'
-  'pkgconf'
-  'gcc'
-)
+depends=('qt6-base' 'qt6-declarative' 'qt6-mqtt' 'openssl' 'zlib' 'libxcrypt')
+makedepends=('cmake' 'ninja' 'pkgconf' 'gcc' 'nlohmann-json' 'qt6-tools')
 source=(
-  "${pkgname}-${_tag}.zip::https://github.com/MolgoVulgo/anycubic-cloud-manager-v3/archive/refs/tags/${_tag}.zip"
+  "accloud-${_tag}.tar.gz::${url}/archive/refs/tags/${_tag}.tar.gz"
+  'acm.png'
 )
 sha256sums=(
-  'SKIP'
+  '459876d5c1b5f44106ab5df0ae4b1a4500e6ce87b2c573c08f1472157204c04c'
+  'ce5e113f3fa599dc335c5c8d8c4c8cc4b8f64f8887a2a0aba9a40da17c03e622'
 )
 
 build() {
-  local _repo_dir="${srcdir}/${pkgname}-${pkgver}-1"
-  local _srcdir="${_repo_dir}/accloud"
-  cd "${_srcdir}"
-  cmake --preset prod
-  cmake --build --preset prod --target accloud_cli
+  cmake -S "${srcdir}/accloud-${_tag}/accloud" -B "${srcdir}/build" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DACCLOUD_ENABLE_QT=ON -DACCLOUD_REQUIRE_QT=ON \
+    -DACCLOUD_DEBUG=OFF -DACCLOUD_ENABLE_EXPERIMENTAL_VIEWER=ON \
+    -DACCLOUD_ENABLE_QML_TESTS=OFF -DACCLOUD_ENABLE_LIVE_TESTS=OFF \
+    -DACCLOUD_VERSION_PRERELEASE=RC.2
+  cmake --build "${srcdir}/build" --target accloud_cli
 }
 
 package() {
-  local _repo_dir="${srcdir}/${pkgname}-${pkgver}-1"
-  local _srcdir="${_repo_dir}/accloud"
-  cd "${_repo_dir}"
-
-  install -d "${pkgdir}/opt/accloud"
-  install -m755 "${_srcdir}/build/prod/accloud_cli" "${pkgdir}/opt/accloud/accloud_cli"
-
-  if [[ -d "${_repo_dir}/resources" ]]; then
-    cp -r "${_repo_dir}/resources" "${pkgdir}/opt/accloud/resources"
-  fi
-
-  install -d "${pkgdir}/usr/share/applications"
-  install -m644 "packaging/arch/accloud.desktop" "${pkgdir}/usr/share/applications/accloud.desktop"
-
-  install -d "${pkgdir}/usr/share/metainfo"
-  install -m644 "packaging/org.accloud.App.metainfo.xml" \
+  local _repo_dir="${srcdir}/accloud-${_tag}"
+  install -Dm755 "${srcdir}/build/accloud_cli" "${pkgdir}/opt/accloud/accloud_cli"
+  install -d "${pkgdir}/usr/bin"
+  ln -s /opt/accloud/accloud_cli "${pkgdir}/usr/bin/accloud_cli"
+  install -Dm644 "${_repo_dir}/packaging/arch/accloud.desktop" \
+    "${pkgdir}/usr/share/applications/accloud.desktop"
+  install -Dm644 "${_repo_dir}/packaging/org.accloud.App.metainfo.xml" \
     "${pkgdir}/usr/share/metainfo/org.accloud.App.metainfo.xml"
-
-  install -d "${pkgdir}/var/log/accloud"
+  install -Dm644 "${srcdir}/acm.png" \
+    "${pkgdir}/usr/share/pixmaps/org.accloud.App.png"
+  install -Dm644 "${_repo_dir}/accloud/LICENSE" \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  # MQTT TLS credentials are supplied externally; never package private keys.
 }

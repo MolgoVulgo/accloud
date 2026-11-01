@@ -36,7 +36,10 @@ TabButton {
         }
         return true
     }
-    readonly property int verticalBorderBottomMargin: root.strokeWidth
+    // The active tongue must meet the panel border at the bottom pixel.
+    // Inactive tabs stop above the baseline, which remains owned by TabBar.
+    readonly property int verticalBorderBottomMargin: (checked && connectActiveToPanel && tabLook === "classic")
+                                                     ? 0 : root.strokeWidth
 
     implicitWidth: tabSizingMode === "equal" ? computedEqualWidth : baseImplicitWidth
     implicitHeight: Theme.controlHeight + 2
@@ -101,6 +104,8 @@ TabButton {
         Canvas {
             id: tabStrokeCanvas
             anchors.fill: parent
+            // Draw over the active bottom-fill pixel, not beneath it.
+            z: 1
             antialiasing: true
 
             onPaint: {
@@ -155,6 +160,8 @@ TabButton {
     onLastVisibleTabChanged: tabStrokeCanvas.requestPaint()
     onTopCornerRadiusChanged: tabStrokeCanvas.requestPaint()
     onBaselineColorChanged: tabStrokeCanvas.requestPaint()
+    onConnectActiveToPanelChanged: tabStrokeCanvas.requestPaint()
+    onTabLookChanged: tabStrokeCanvas.requestPaint()
 
     contentItem: Text {
         text: root.text

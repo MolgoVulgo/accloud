@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -59,6 +60,37 @@ std::optional<int> jsonToInt(const nlohmann::json& value) {
         } catch (...) {
             return std::nullopt;
         }
+    }
+    return std::nullopt;
+}
+
+std::optional<double> jsonToNonNegativeFiniteDouble(const nlohmann::json& value) {
+    double number = 0.0;
+    if (value.is_number()) {
+        number = value.get<double>();
+    } else if (value.is_string()) {
+        const std::string text = value.get<std::string>();
+        std::size_t consumed = 0;
+        try {
+            number = std::stod(text, &consumed);
+        } catch (...) {
+            return std::nullopt;
+        }
+        if (consumed != text.size()) return std::nullopt;
+    } else {
+        return std::nullopt;
+    }
+    if (!std::isfinite(number) || number < 0.0) return std::nullopt;
+    return number;
+}
+
+std::optional<double> firstFloatField(const nlohmann::json& object,
+                                      std::initializer_list<const char*> keys) {
+    if (!object.is_object()) return std::nullopt;
+    for (const char* key : keys) {
+        if (!object.contains(key) || object[key].is_null()) continue;
+        const auto number = jsonToNonNegativeFiniteDouble(object[key]);
+        if (number.has_value()) return number;
     }
     return std::nullopt;
 }
@@ -295,6 +327,19 @@ MqttRouteResult MqttMessageRouter::route(const std::string& topic, const std::st
     event.remainingSec = firstIntField(env.data, {"remaining_sec", "remaining_time", "left_time", "remain_time", "remain_sec"});
     event.currentLayer = firstIntField(env.data, {"current_layer", "curr_layer", "layer_now", "layer"});
     event.totalLayers = firstIntField(env.data, {"total_layers", "layer_total", "total_layer"});
+    if (event.type == accloud::realtime::MessageType::Print) {
+        event.resinUsage = firstFloatField(env.data, {"supplies_usage"});
+        event.layerThickness = firstFloatField(env.data, {"z_thick"});
+        if (env.data.contains("settings") && env.data["settings"].is_object()) {
+            const auto& settings = env.data["settings"];
+            event.normalExposureTime = firstFloatField(settings, {"normal_exposure_time"});
+            event.bottomExposureTime = firstFloatField(settings, {"bottom_exposure_time"});
+            event.lightOffTime = firstFloatField(settings, {"light_off_time"});
+            const auto bottomLayers = firstIntField(settings, {"bottom_layers"});
+            if (bottomLayers.has_value() && *bottomLayers >= 0)
+                event.bottomLayers = bottomLayers;
+        }
+    }
     event.taskMode = firstIntField(env.data, {"task_mode", "taskMode"});
     event.heatingSkipAllowed = firstBoolField(env.data, {"heating_skip_allowed", "heatingSkipAllowed"});
     const auto heatingRemaining = firstIntField(env.data, {"heating_remain_time", "heating_remaining_time", "heatingRemainTime"});

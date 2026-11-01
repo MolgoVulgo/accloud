@@ -12,6 +12,7 @@ Rectangle {
     property string selectedPrinterId: ""
     property var selectedPrinterDetails: ({})
     property var selectedLiveJobData: ({})
+    property var selectedFileMetadata: ({})
     property bool loadingPrinterHistory: false
     property bool localFilePrintEnabled: true
     property string localFilePrintBlockReason: ""
@@ -289,9 +290,9 @@ Rectangle {
                 "value": checkSummary(stage)
             },
             {
-                "label": qsTr("Printing"),
+                "label": qsTr("Start"),
                 "status": workflowStepStatus(stage, printState, "printing"),
-                "value": root.layersProgressText(root.selectedPrinter)
+                "value": qsTr("Waiting for the first layer")
             }
         ]
         return rows
@@ -409,6 +410,79 @@ Rectangle {
 
     function progressPercentText(printer) {
         return providerText(root.progressTextProvider, printer ? printer.progress : -1, "-")
+    }
+
+    function mqttPrintMetadataText(name) {
+        var mqtt = root.selectedPrinter ? root.selectedPrinter.mqttPrintParameters : null
+        if (!mqtt) return ""
+        var field = ""
+        switch (name) {
+        case "resin": field = "resinUsage"; break
+        case "thickness": field = "layerThickness"; break
+        case "exposure": field = "exposureTime"; break
+        case "bottomExposure": field = "bottomExposureTime"; break
+        case "offTime": field = "offTime"; break
+        case "bottomLayers": field = "bottomLayers"; break
+        default: return ""
+        }
+        var raw = mqtt[field]
+        if (raw === undefined || raw === null || String(raw).trim() === "") return ""
+        var n = Number(raw)
+        if (!isFinite(n) || n < 0) return ""
+        if (name === "bottomLayers") return String(Math.floor(n))
+        if (name === "resin") return n.toFixed(3) + " ml"
+        if (name === "thickness") return n.toFixed(3) + " mm"
+        return n.toFixed(3) + " s"
+    }
+
+    function fileMetadataValue(name) {
+        // MQTT is authoritative for this printer's currently active print settings.
+        var mqttValue = mqttPrintMetadataText(name)
+        if (mqttValue.length > 0) return mqttValue
+        var meta = root.selectedFileMetadata || ({})
+        var live = root.selectedLiveJobData || ({})
+        var candidates = []
+        switch (name) {
+        case "resin": candidates = [meta.resinUsage, live.resinUsage]; break
+        case "duration": candidates = [meta.printTime, live.estimatedPrintTime]; break
+        case "thickness": candidates = [meta.layerThickness, meta.layerHeight, live.layerThickness]; break
+        case "layers": candidates = [meta.layers, live.layers,
+                                     root.selectedPrinter ? root.selectedPrinter.totalLayers : undefined]; break
+        case "exposure": candidates = [meta.exposureTime, live.exposureTime]; break
+        case "bottomExposure": candidates = [meta.bottomExposureTime, live.bottomExposureTime]; break
+        case "offTime": candidates = [meta.offTime, live.offTime]; break
+        case "bottomLayers": candidates = [meta.bottomLayers, live.bottomLayers]; break
+        }
+        for (var i = 0; i < candidates.length; ++i) {
+            var raw = candidates[i]
+            if (raw === undefined || raw === null)
+                continue
+            var text = String(raw).trim()
+            if (!text || text === "-" || text.toUpperCase() === "N/A"
+                    || text.toLowerCase() === "null" || text.toLowerCase() === "undefined")
+                continue
+            var number = Number(text)
+            if (isFinite(number) && number < 0)
+                continue
+            return text
+        }
+        return qsTr("N/A")
+    }
+
+    function fileMetadataRows(column) {
+        if (column === 0)
+            return [
+                { "label": qsTr("Estimated resin"), "value": fileMetadataValue("resin") },
+                { "label": qsTr("Estimated duration"), "value": fileMetadataValue("duration") },
+                { "label": qsTr("Layer thickness"), "value": fileMetadataValue("thickness") },
+                { "label": qsTr("Layer count"), "value": fileMetadataValue("layers") }
+            ]
+        return [
+            { "label": qsTr("Normal exposure time"), "value": fileMetadataValue("exposure") },
+            { "label": qsTr("Bottom exposure time"), "value": fileMetadataValue("bottomExposure") },
+            { "label": qsTr("Off time"), "value": fileMetadataValue("offTime") },
+            { "label": qsTr("Bottom layers"), "value": fileMetadataValue("bottomLayers") }
+        ]
     }
 
     function currentFileText(printer) {
@@ -620,10 +694,52 @@ Rectangle {
         return feedingOperationType === 2 ? qsTr("vidage") : qsTr("remplissage")
     }
 
+    // Only real layer/progress evidence promotes the UI to print tracking.
+    // MQTT download/check/preheat and HTTP acceptance remain preparation, even
+    // when the server's printer state already says PRINTING.
+    function hasStartedPrintLayers() {
+        if (!root.selectedPrinter)
+            return false
+        var stage = String(selectedMqttField("mqttJobStage", "") || "").toLowerCase().trim()
+        var printState = String(selectedMqttField("mqttPrintState", "") || "").toLowerCase().trim()
+        var state = String(root.selectedPrinter.state || "").toUpperCase().trim()
+        if (root.feedingOperationActive || state === "OFFLINE" || state === "ERROR")
+            return false
+        var activelyPrinting = state === "PRINTING"
+                || liveJobStatusCode(root.selectedLiveJobData) === 1
+                || stage === "printing"
+                || printState === "printing"
+                || printState === "paused"
+                || printState === "pausing"
+                || printState === "resuming"
+                || printState === "resumed"
+        if (!activelyPrinting)
+            return false
+        var layer = nonNegativeInt(root.selectedPrinter.currentLayer)
+        var progress = nonNegativeInt(root.selectedPrinter.progress)
+        if (layer > 0)
+            return true
+        if (stage === "command_sent" || stage === "downloading"
+                || stage === "downloaded" || stage === "loaded"
+                || stage === "checking" || stage === "preheating"
+                || printState === "downloading" || printState === "monitoring"
+                || printState === "preheating" || printState === "waiting")
+            return false
+        return progress > 0
+    }
+
     function printerInfoMode() {
         if (!root.selectedPrinter)
             return "none"
-        return isPrinterPrinting() ? "printing" : "basic"
+        if (root.feedingOperationActive)
+            return "basic"
+        if (root.hasStartedPrintLayers())
+            return "printing"
+        if (root.selectedPrinter.awaitingPrinterTelemetry === true
+                || root.hasActiveWorkflowStatus()
+                || root.isPrinterPrinting())
+            return "preparing"
+        return "basic"
     }
 
     function releaseFilmText(details) {
@@ -660,20 +776,11 @@ Rectangle {
     }
 
     function lastPrintedFileText() {
-        if (!root.printerHistoryModel || root.printerHistoryModel.count === undefined)
-            return "-"
-        var fallback = ""
-        for (var i = 0; i < root.printerHistoryModel.count; ++i) {
-            var entry = root.printerHistoryModel.get(i)
-            var name = String(entry.gcodeName || entry.currentFile || "").trim()
-            if (name.length <= 0)
-                continue
-            if (fallback.length <= 0)
-                fallback = name
-            if (Number(entry.printStatus) === 2)
-                return name
-        }
-        return fallback.length > 0 ? fallback : "-"
+        // The model owns completion ordering and notifies the binding after any
+        // relevant update, including a dataChanged with an unchanged row count.
+        var value = root.printerHistoryModel
+                ? String(root.printerHistoryModel.lastCompletedFile || "").trim() : ""
+        return value.length > 0 ? value : "-"
     }
 
     function recentJobStatusInfo(printStatus) {
@@ -755,14 +862,15 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 10
+        anchors.margins: 8
+        spacing: 6
 
         RowLayout {
             id: printerDetailHeader
             objectName: "printerDetailHeader"
-            visible: root.selectedPrinter !== null
+            visible: !root.embeddedInTabsContainer && root.selectedPrinter !== null
             Layout.fillWidth: true
+            Layout.preferredHeight: visible ? implicitHeight : 0
             spacing: Theme.gapRow
 
             Item { Layout.fillWidth: true }
@@ -847,30 +955,43 @@ Rectangle {
                             subtitle: qsTr("Current printer characteristics")
                         }
 
-                        RowLayout {
-                            visible: root.hasActiveWorkflowStatus()
+                        Rectangle {
+                            id: printerPreparationPanel
+                            objectName: "printerPreparationPanel"
+                            visible: root.printerInfoMode() === "preparing"
                             Layout.fillWidth: true
-                            Layout.preferredHeight: visible ? implicitHeight : 0
-                            Layout.maximumHeight: visible ? implicitHeight : 0
-                            spacing: 8
+                            Layout.preferredHeight: visible ? workflowStatusContent.implicitHeight + 16 : 0
+                            Layout.maximumHeight: visible ? workflowStatusContent.implicitHeight + 16 : 0
+                            radius: Theme.radiusControl
+                            color: Theme.bgCardSubtle
+                            border.width: Theme.borderWidth
+                            border.color: Theme.borderSubtle
 
-                            Rectangle {
-                                radius: Theme.radiusControl
-                                color: Theme.cardAlt
-                                border.width: Theme.borderWidth
-                                border.color: Theme.borderSubtle
-                                Layout.fillWidth: true
-                                implicitHeight: workflowStatusContent.implicitHeight + 16
+                            ColumnLayout {
+                                id: workflowStatusContent
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 6
 
-                                ColumnLayout {
-                                    id: workflowStatusContent
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 6
+                                Text {
+                                    objectName: "printerPreparationTitle"
+                                    text: qsTr("Print preparation")
+                                    color: Theme.fgPrimary
+                                    font.pixelSize: Theme.fontBodyPx
+                                    font.bold: true
+                                }
 
-                                    GridLayout {
-                                        Layout.fillWidth: true
-                                        columns: 3
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("Preparing the printer before the first layer.")
+                                    color: Theme.fgSecondary
+                                    font.pixelSize: Theme.fontCaptionPx
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                GridLayout {
+                                    Layout.fillWidth: true
+                                    columns: 2
                                         columnSpacing: 10
                                         rowSpacing: 4
 
@@ -936,12 +1057,13 @@ Rectangle {
                                                 }
                                             }
                                         }
-                                    }
                                 }
                             }
                         }
 
                         Rectangle {
+                            id: printerActivePrintPanel
+                            objectName: "printerActivePrintPanel"
                             visible: root.printerInfoMode() === "printing"
                             Layout.fillWidth: true
                             Layout.preferredHeight: visible ? 176 : 0
@@ -988,7 +1110,15 @@ Rectangle {
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
-                                    spacing: 2
+                                    spacing: 4
+
+                                    Text {
+                                        objectName: "printerActivePrintTitle"
+                                        text: qsTr("Print in progress")
+                                        color: Theme.stateRunning
+                                        font.pixelSize: Theme.fontSectionPx
+                                        font.bold: true
+                                    }
 
                                     Text {
                                         text: qsTr("Current File")
@@ -1055,67 +1185,6 @@ Rectangle {
                             rowSpacing: 8
 
                             Rectangle {
-                                visible: false
-                                Layout.fillWidth: true
-                                radius: Theme.radiusControl
-                                color: Theme.bgSurface
-                                border.width: Theme.borderWidth
-                                border.color: Theme.borderSubtle
-                                implicitHeight: 48
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 2
-
-                                    Text {
-                                        text: qsTr("Progress")
-                                        color: Theme.fgSecondary
-                                        font.pixelSize: Theme.fontCaptionPx
-                                    }
-
-                                    Text {
-                                        text: root.providerText(root.progressTextProvider,
-                                                                root.selectedPrinter ? root.selectedPrinter.progress : -1,
-                                                                "-")
-                                        color: Theme.fgPrimary
-                                        font.pixelSize: Theme.fontBodyPx
-                                        font.bold: true
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                visible: false
-                                Layout.fillWidth: true
-                                radius: Theme.radiusControl
-                                color: Theme.bgSurface
-                                border.width: Theme.borderWidth
-                                border.color: Theme.borderSubtle
-                                implicitHeight: 48
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 2
-
-                                    Text {
-                                        text: qsTr("Layers")
-                                        color: Theme.fgSecondary
-                                        font.pixelSize: Theme.fontCaptionPx
-                                    }
-
-                                    Text {
-                                        text: root.layersProgressText(root.selectedPrinter)
-                                        color: Theme.fgPrimary
-                                        font.pixelSize: Theme.fontBodyPx
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                    }
-                                }
-                            }
-
-                            Rectangle {
                                 Layout.fillWidth: true
                                 radius: Theme.radiusControl
                                 color: Theme.bgSurface
@@ -1171,6 +1240,59 @@ Rectangle {
                                         color: Theme.fgPrimary
                                         font.pixelSize: Theme.fontBodyPx
                                         font.bold: true
+                                    }
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            id: activeFileMetadataCard
+                            objectName: "printerActiveFileMetadataCard"
+                            visible: root.printerInfoMode() === "printing"
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: visible ? fileMetadataContent.implicitHeight + 16 : 0
+                            Layout.maximumHeight: visible ? fileMetadataContent.implicitHeight + 16 : 0
+                            radius: Theme.radiusControl
+                            color: Theme.bgSurface
+                            border.width: Theme.borderWidth
+                            border.color: Theme.borderSubtle
+
+                            RowLayout {
+                                id: fileMetadataContent
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 8
+                                spacing: 12
+
+                                Repeater {
+                                    model: 2
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        property int metadataColumn: index
+                                        spacing: 7
+                                        Repeater {
+                                            model: root.fileMetadataRows(metadataColumn)
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 8
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: modelData.label
+                                                    color: Theme.fgSecondary
+                                                    font.pixelSize: Theme.fontCaptionPx
+                                                    elide: Text.ElideRight
+                                                }
+                                                Text {
+                                                    Layout.preferredWidth: 76
+                                                    horizontalAlignment: Text.AlignRight
+                                                    text: modelData.value
+                                                    color: Theme.fgPrimary
+                                                    font.pixelSize: Theme.fontCaptionPx
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -1507,7 +1629,9 @@ Rectangle {
 
                         Rectangle {
                             objectName: "printerFunctionsCard"
-                            visible: root.printerInfoMode() !== "basic"
+                            // During an actual print the progress panel owns the
+                            // available height; resin controls are not shown.
+                            visible: root.printerInfoMode() === "preparing"
                             Layout.fillWidth: true
                             Layout.preferredHeight: visible ? functionsCardContentStandalone.implicitHeight + 16 : 0
                             Layout.maximumHeight: visible ? functionsCardContentStandalone.implicitHeight + 16 : 0

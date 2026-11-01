@@ -62,6 +62,8 @@ def main() -> int:
     for token in forbidden_facade_tokens:
         if token in facade:
             errors.append(f"MqttBridge.cpp still owns extracted responsibility token {token!r}")
+    if "MqttBridge::activePrintFileParameters" in facade:
+        errors.append("MqttBridge.cpp must not implement the active print file parameters getter")
 
     required_facade_tokens = (
         "initializeSessionCallbacks();",
@@ -115,6 +117,8 @@ def main() -> int:
 
     telemetry = texts.get("mqtt/MqttBridgeTelemetry.cpp", "")
     telemetry_tokens = (
+        "MqttBridge::activePrintFileParameters",
+        "PrinterRealtimeStore::instance()",
         "setUiDiagnosticsActive",
         "appendRawLine",
         "refreshTelemetrySnapshot",

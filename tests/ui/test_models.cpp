@@ -218,6 +218,75 @@ bool test_patch_models_preserve_identity_updates() {
   return ok;
 }
 
+bool test_recent_jobs_last_completed_file_tracks_patches() {
+  accloud::RecentJobsModel jobs;
+  int updates = 0;
+  QObject::connect(&jobs, &accloud::RecentJobsModel::lastCompletedFileChanged,
+                   [&updates]() { ++updates; });
+  auto makeJob = [](const char* task, const char* name, int status,
+                    qlonglong created, qlonglong ended, const char* printer) {
+    QVariantMap job;
+    job.insert(QStringLiteral("taskId"), QString::fromLatin1(task));
+    job.insert(QStringLiteral("gcodeName"), QString::fromLatin1(name));
+    job.insert(QStringLiteral("printStatus"), status);
+    job.insert(QStringLiteral("createTime"), created);
+    job.insert(QStringLiteral("endTime"), ended);
+    job.insert(QStringLiteral("printerId"), QString::fromLatin1(printer));
+    return job;
+  };
+
+  auto oldFinished = makeJob("done-old", "old.pwsz", 2, 100, 150, "p1");
+  auto latestFinished = makeJob("done-new", "latest.pwsz", 2, 110, 230, "p1");
+  auto newFailure = makeJob("failed", "failed.pwsz", 3, 300, 320, "p1");
+  auto running = makeJob("active", "active.pwsz", 1, 400, 0, "p1");
+  bool ok = expect(jobs.replaceOrPatchJobs({newFailure, oldFinished, running, latestFinished}),
+                   "recent jobs initial load should change")
+      && expect(jobs.lastCompletedFile() == QStringLiteral("latest.pwsz"),
+                "last printed must use the most recent successful endTime, not row order")
+      && expect(updates == 1, "initial successful file should signal one change");
+
+  // Same identities, same row count: only dataChanged is emitted by the list model.
+  latestFinished.insert(QStringLiteral("gcodeName"), QStringLiteral("renamed.pwsz"));
+  ok = expect(jobs.replaceOrPatchJobs({newFailure, oldFinished, running, latestFinished}),
+              "same-count job metadata update should change") && ok;
+  ok = expect(jobs.lastCompletedFile() == QStringLiteral("renamed.pwsz"),
+              "same-count metadata change must refresh the derived name") && ok;
+  ok = expect(updates == 2, "same-count metadata update should notify lastCompletedFile") && ok;
+  ok = expect(!jobs.replaceOrPatchJobs({newFailure, oldFinished, running, latestFinished}),
+              "identical history must not be considered a change") && ok;
+  ok = expect(updates == 2, "identical history must not notify the derived property") && ok;
+
+  // A second completed job may finish after a job created later.
+  oldFinished.insert(QStringLiteral("endTime"), 360LL);
+  ok = expect(jobs.replaceOrPatchJobs({newFailure, oldFinished, running, latestFinished}),
+              "endTime update should change the model") && ok;
+  ok = expect(jobs.lastCompletedFile() == QStringLiteral("old.pwsz"),
+              "last completion must win over recent creation") && ok;
+
+  // Missing endTime falls back to createTime, but failures never qualify.
+  auto fallbackFinished = makeJob("done-fallback", "fallback.pwsz", 2, 500, 0, "p1");
+  ok = expect(jobs.mergeOrPatchJobs({fallbackFinished}), "merge completed fallback") && ok;
+  ok = expect(jobs.lastCompletedFile() == QStringLiteral("fallback.pwsz"),
+              "missing endTime must fall back to valid createTime") && ok;
+  fallbackFinished.insert(QStringLiteral("printStatus"), 4);
+  ok = expect(jobs.mergeOrPatchJobs({fallbackFinished}), "status update should merge") && ok;
+  ok = expect(jobs.lastCompletedFile() == QStringLiteral("old.pwsz"),
+              "cancelled tasks must be excluded after a same-count update") && ok;
+
+  // The page clears/replaces this model when changing selected printers.
+  jobs.clear();
+  ok = expect(jobs.lastCompletedFile().isEmpty(), "printer switch must clear old filename") && ok;
+  auto otherPrinter = makeJob("p2-done", "other.pwsz", 2, 600, 700, "p2");
+  ok = expect(jobs.replaceOrPatchJobs({otherPrinter}), "other printer history should load") && ok;
+  ok = expect(jobs.lastCompletedFile() == QStringLiteral("other.pwsz"),
+              "other printer should show its own last successful file") && ok;
+  otherPrinter.insert(QStringLiteral("printStatus"), 3);
+  ok = expect(jobs.replaceOrPatchJobs({otherPrinter}), "failed terminal update should apply") && ok;
+  ok = expect(jobs.lastCompletedFile().isEmpty(),
+              "no completed jobs must display an empty property, never a failed filename") && ok;
+  return ok;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -228,5 +297,6 @@ int main(int argc, char** argv) {
   ok = test_mqtt_tail_batches_hidden_updates() && ok;
   ok = test_printer_files_model_applies_incremental_deltas() && ok;
   ok = test_patch_models_preserve_identity_updates() && ok;
+  ok = test_recent_jobs_last_completed_file_tracks_patches() && ok;
   return ok ? 0 : 1;
 }

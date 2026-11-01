@@ -57,4 +57,4 @@ This is **`1.0.0-rc.1`**, not a final `1.0.0` release. The non-live `local-full`
 
 Compatibility evidence is intentionally graded: **confirmed** means the named simulated/local test passed; **expected** means the M7 Pro cloud workflow is the primary design target but awaits controlled hardware verification; **not tested** means other cloud-discovered printer models, firmware variants, or live print/cleanup workflows have no certification. A Wi-Fi connection alone is insufficient: the printer must be reachable through the official Anycubic cloud.
 
-Existing desktop metadata displays the `accloud` identity. The historical Arch `PKGBUILD` still targets `v0.85-1` and is **not** a validated `1.0.0-rc.1` package; no release archive or new packaging format is produced in this lot.
+The Arch package targets `1.0.0-RC.2` and installs the supplied desktop icon. See [packaging instructions](packaging/arch/README.md) for building and validation limits.

@@ -293,6 +293,13 @@ void applyJobFields(PrintJobSnapshot& job, const PrinterRealtimeEvent& event) {
     if (event.remainingSec.has_value()) job.remainingSec = event.remainingSec;
     if (event.currentLayer.has_value()) job.currentLayer = event.currentLayer;
     if (event.totalLayers.has_value()) job.totalLayers = event.totalLayers;
+    // Partial frames update the current task without erasing values sent at print/start.
+    if (event.resinUsage.has_value()) job.resinUsage = event.resinUsage;
+    if (event.layerThickness.has_value()) job.layerThickness = event.layerThickness;
+    if (event.normalExposureTime.has_value()) job.normalExposureTime = event.normalExposureTime;
+    if (event.bottomExposureTime.has_value()) job.bottomExposureTime = event.bottomExposureTime;
+    if (event.lightOffTime.has_value()) job.lightOffTime = event.lightOffTime;
+    if (event.bottomLayers.has_value()) job.bottomLayers = event.bottomLayers;
     if (event.taskMode.has_value()) job.taskMode = event.taskMode;
     if (event.heatingSkipAllowed.has_value()) job.heatingSkipAllowed = event.heatingSkipAllowed;
     if (event.heatingRemainingSec.has_value()) job.heatingRemainingSec = event.heatingRemainingSec;

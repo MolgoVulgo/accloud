@@ -55,4 +55,4 @@ Il s’agit de **`1.0.0-rc.1`**, pas de la version finale `1.0.0`. Le gate local
 
 La compatibilité est classée selon le niveau de preuve : **confirmé** désigne un test local/simulé exécuté ; **attendu** désigne le parcours cloud de la M7 Pro, imprimante cible, encore soumis à validation matérielle contrôlée ; **non testé** désigne les autres modèles découverts via le cloud, firmwares ou parcours réels d’impression/nettoyage non certifiés. La connexion Wi-Fi ne suffit pas : l’imprimante doit être accessible via le cloud officiel Anycubic.
 
-Les métadonnées desktop existantes affichent l’identité `accloud`. L’ancien `PKGBUILD` Arch cible toujours `v0.85-1` et ne constitue **pas** un paquet `1.0.0-rc.1` validé ; ce lot ne produit ni archive de release ni nouveau format de packaging.
+Le paquet Arch cible `1.0.0-RC.2` et installe l’icône desktop fournie. Voir [les instructions de packaging](packaging/arch/README.md) pour la construction et les limites de validation.
